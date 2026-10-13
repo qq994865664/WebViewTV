@@ -16,6 +16,7 @@ function Run([string]$exe,[string[]]$arguments) { & $exe @arguments; if($LASTEXI
 Run "$bt\aapt2.exe" @('link','-o',"$testBuild\unsigned.apk",'-I',$android,'--manifest',"$repo\tests\navigation\AndroidManifest.xml")
 $sources=@("$repo\app\src\main\java\com\vasthread\webviewtv\reconstructed\TvMenuView.java", "$repo\app\src\main\java\com\vasthread\webviewtv\reconstructed\UiScale.java")
 $sources+=@(Get-ChildItem "$repo\tests\navigation" -Filter '*.java' | ForEach-Object FullName)
+$sources+= "$repo\app\src\main\java\com\vasthread\webviewtv\reconstructed\PlayerControlsView.java"
 Run "$Jdk\bin\javac.exe" (@('-encoding','UTF-8','-source','8','-target','8','-classpath',$android,'-d',"$testBuild\classes")+$sources)
 $classes=@(Get-ChildItem "$testBuild\classes" -Recurse -Filter '*.class' | ForEach-Object FullName)
 Run "$bt\d8.bat" (@('--lib',$android,'--min-api','28','--output',"$testBuild\dex")+$classes)

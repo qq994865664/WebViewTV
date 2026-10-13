@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.1` / versionCode 9，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.2` / versionCode 10，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.2：播放画面滑动手势
+
+新增原生 `PlayerControlsView`，上滑下一个频道、下滑上一个频道，左滑下一个直播源、右滑上一个直播源。手势仅作用于播放画面，复用现有播放和全屏逻辑；轻点和遥控操作继续保留。单指松手后按距离及主方向判断，每次最多触发一次，过滤短滑、歧义斜滑、多指、取消事件和长按误点击。单直播源提示而不重新加载，菜单、设置、节目单和画中画不接受播放手势。见 [release-042.md](release-042.md)。
 
 ### 0.4.1：左右列表焦点切换保持位置
 

@@ -75,7 +75,8 @@ public final class NavigationTest extends Instrumentation {
             if (!expected.equals(field("selectedCategory"))) throw new AssertionError("Group did not follow Down");
             key(KeyEvent.KEYCODE_DPAD_UP);
             same("up after return", new int[]{previous}, new int[]{snapshot(categories)[0]});
-            result.putString("stream", "\nPASS " + checks + " navigation assertions\n");
+            int gestureChecks = new GestureChecks(this, activity).run();
+            result.putString("stream", "\nPASS " + checks + " navigation assertions\nPASS " + gestureChecks + " gesture assertions\n");
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) {
             result.putString("stream", "\nFAIL " + android.util.Log.getStackTraceString(error));

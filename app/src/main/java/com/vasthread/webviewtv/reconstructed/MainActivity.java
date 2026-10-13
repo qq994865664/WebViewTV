@@ -266,10 +266,13 @@ public class MainActivity extends Activity {
         });
 
         // Keep tap and remote controls in the native layer, including HTML custom fullscreen.
-        playerControls = new View(this);
+        playerControls = new PlayerControlsView(this, new PlayerControlsView.Listener() {
+            public void onChannelSwipe(int step) { swipePlayback(false, step); }
+            public void onSourceSwipe(int step) { swipePlayback(true, step); }
+        });
         playerControls.setBackgroundColor(Color.TRANSPARENT);
         playerControls.setFocusable(true);
-        playerControls.setContentDescription("打开频道菜单");
+        playerControls.setContentDescription("点击打开频道菜单，上下滑动换台，左右滑动切源");
         playerControls.setOnClickListener(view -> showMenu(true));
         root.addView(playerControls, new FrameLayout.LayoutParams(-1, -1));
         hud = new LinearLayout(this);
@@ -422,6 +425,17 @@ public class MainActivity extends Activity {
     }
 
     private void switchSource(int step) { play(channelIndex, sourceIndex + step); }
+
+    private void swipePlayback(boolean source, int step) {
+        if (destroyed || isInPictureInPictureMode() || menu.isOpen()
+                || settingsView.isOpen() || epgView.isOpen()) return;
+        handler.removeCallbacks(selectNumber);
+        digits = "";
+        if (source) {
+            if (sourceCount <= 1) showHud("当前频道仅有一个直播源", false, 1800);
+            else switchSource(step);
+        } else play(channelIndex + step, -999);
+    }
     private void refresh() { showMenu(false); hideFullscreen(); viewportFullscreen = false; web.scrollTo(0, 0); beginLoading(); web.reload(); }
 
     private void inject() {
