@@ -38,10 +38,9 @@ public final class NavigationTest extends Instrumentation {
             }
             checks++;
             same("only current group channels", new int[]{30}, new int[]{channels.getCount()});
-            View panel = (View)field("panel"), information = (View)field("informationCard");
-            if (information.getParent() != activity.menu || information.getTop() < panel.getBottom()
-                    || Math.abs((information.getLeft()+information.getRight())/2 - activity.menu.getWidth()/2)>1)
-                throw new AssertionError("Information must float centered below menu without overlap");
+            View panel = (View)field("panel");
+            if (activity.menu.getChildCount() != 1 || panel.getHeight() < activity.menu.getHeight() * .9f)
+                throw new AssertionError("Menu must use full height without an information panel");
             checks++;
             key(KeyEvent.KEYCODE_DPAD_LEFT);
             // Scroll well beyond the first page by normal remote input.

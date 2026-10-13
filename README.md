@@ -1,10 +1,10 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.5**（versionCode 13），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.6**（versionCode 14），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.5-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.6-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，右上角进入设置；系统返回键先关闭面板，再显示退出确认。
 
@@ -12,7 +12,9 @@
 
 0.4.2 新增播放画面滑动手势：**上滑下一个频道，下滑上一个频道；左滑下一个直播源，右滑上一个直播源**。松手后每次切换一次，首尾循环；轻点仍打开菜单。菜单、设置和节目单内的滑动用于操作当前面板。单直播源频道会显示提示，不会重复加载。详见 [0.4.2 发布说明](docs/release-042.md)。
 
-0.4.5 将上下换台改成整页跟手翻页：旧画面滑出，下一页从相反边缘进入；滑动不足时回弹。退出旧页后发起播放，系统关闭动画时直接切换。频道菜单使用半透明背景，当前频道及节目信息显示在屏幕底部居中的独立浮层。「全部频道」入口已移除，打开菜单定位到当前频道所属分组，保留收藏和原有分组。详见 [0.4.5 发布说明](docs/release-045.md)。
+0.4.6 将频道信息与菜单分开：换台后底部居中显示频道、直播源和节目信息 **5 秒**，然后自动隐藏。连续换台重新计时；打开菜单、设置或节目单立即隐藏信息。菜单恢复完整高度，正常播放后不再追加重复的频道操作提示。详见 [0.4.6 发布说明](docs/release-046.md)。
+
+0.4.5 将上下换台改成整页跟手翻页，频道菜单使用半透明背景。「全部频道」入口已移除，打开菜单定位到当前频道所属分组，保留收藏和原有分组。详见 [0.4.5 发布说明](docs/release-045.md)。
 
 Release 使用正式私有密钥签名、关闭应用调试，带有旧本机开发签名的升级记录，可从本项目此前安装覆盖升级并保留配置。下载页同时提供 SHA-256 校验文件。构建与验证细节见 [发布说明](docs/release-040.md)。
 

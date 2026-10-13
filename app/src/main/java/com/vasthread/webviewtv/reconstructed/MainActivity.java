@@ -52,6 +52,8 @@ public class MainActivity extends Activity {
     private WebView web;
     private FrameLayout root, playbackStage, fullscreen;
     private TvMenuView menu;
+    private ChannelInfoView channelInfo;
+    private boolean playbackStarted;
     private PlayerControlsView playerControls;
     private ChannelSwipeAnimation channelSwipeAnimation;
     private LinearLayout hud;
@@ -318,6 +320,8 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams hudParams = new FrameLayout.LayoutParams(-2, px(54), Gravity.BOTTOM | Gravity.LEFT);
         hudParams.setMargins(px(28), 0, px(28), px(28));
         root.addView(hud, hudParams);
+        channelInfo = new ChannelInfoView(this);
+        root.addView(channelInfo);
         rebuildMenu();
         settingsView = new SettingsView(this, new SettingsView.Listener() {
             public void onSave(JSONObject settings) { saveSettings(settings); }
@@ -354,7 +358,12 @@ public class MainActivity extends Activity {
         if (epgView != null && epgView.isOpen()) epgView.bringToFront();
     }
 
-    private void syncMenu() { menu.setCurrentChannel(channelIndex, sourceIndex, sourceCount, favorites); updateProgramme(); }
+    private void syncMenu() {
+        menu.setCurrentChannel(channelIndex, sourceIndex, sourceCount, favorites);
+        if (channelInfo != null && !channels.isEmpty())
+            channelInfo.setChannel(channels.get(channelIndex).optString("name"), sourceIndex, sourceCount);
+        updateProgramme();
+    }
 
     private void favorite() {
         if (channels.isEmpty()) return;
@@ -381,6 +390,8 @@ public class MainActivity extends Activity {
         JSONObject channel = channels.get(nextIndex);
         JSONArray urls = channel.optJSONArray("urls");
         if (urls == null || urls.length() == 0) { toast("频道没有播放源"); return; }
+        boolean changedChannel = !playbackStarted || nextIndex != channelIndex;
+        playbackStarted = true;
         hideFullscreen();
         channelIndex = nextIndex;
         sourceCount = urls.length();
@@ -414,6 +425,12 @@ public class MainActivity extends Activity {
         prefs.edit().putInt("last", channelIndex).putString("lastChannelId", channelKey(channel)).apply();
         syncMenu();
         showMenu(false);
+        if (changedChannel) {
+            menu.closeImmediately();
+            hud.setVisibility(View.GONE);
+            if (!isInPictureInPictureMode() && !playbackPaused && !settingsView.isOpen() && !epgView.isOpen())
+                channelInfo.showForChannel();
+        }
         beginLoading(retry);
         android.util.Log.i(TAG, "play channel=" + (channelIndex + 1) + " source=" + (sourceIndex + 1));
         viewportFullscreen = false;
@@ -484,7 +501,8 @@ public class MainActivity extends Activity {
                 channelIndex + 1, channels.get(channelIndex).optString("name"), sourceIndex + 1, sourceCount);
         status.setText(name + " · " + message);
         progress.setVisibility(loading ? View.VISIBLE : View.GONE);
-        hud.setVisibility(isInPictureInPictureMode() || (menu != null && menu.isOpen()) ? View.GONE : View.VISIBLE);
+        hud.setVisibility(isInPictureInPictureMode() || (menu != null && menu.isOpen())
+                || (channelInfo != null && channelInfo.getVisibility() == View.VISIBLE) ? View.GONE : View.VISIBLE);
         if (duration > 0) handler.postDelayed(hideHud, duration);
     }
 
@@ -555,12 +573,13 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu(boolean show) {
-        if (show) { resetPlaybackSwipe(); syncMenu(); hud.setVisibility(View.GONE); menu.open(); menu.bringToFront(); }
+        if (show) { channelInfo.hide(); resetPlaybackSwipe(); syncMenu(); hud.setVisibility(View.GONE); menu.open(); menu.bringToFront(); }
         else { menu.close(); playerControls.requestFocus(); immersive(); }
     }
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }
     private void pip() {
+        channelInfo.hide();
         resetPlaybackSwipe();
         try {
             showMenu(false);
@@ -610,10 +629,11 @@ public class MainActivity extends Activity {
 
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused);
-        if (focused) immersive(); else resetPlaybackSwipe();
+        if (focused) immersive(); else { resetPlaybackSwipe(); if (channelInfo != null) channelInfo.hide(); }
     }
     @Override public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); resetPlaybackSwipe(); immersive(); }
     @Override protected void onPause() {
+        if (channelInfo != null) channelInfo.hide();
         resetPlaybackSwipe(); super.onPause();
         playbackPaused = !isInPictureInPictureMode();
         if (playbackPaused) { handler.removeCallbacks(sourceWatchdog); if (web != null) web.onPause(); }
@@ -626,6 +646,7 @@ public class MainActivity extends Activity {
     @Override public void onBackPressed() { handleBack(); }
     @Override protected void onDestroy() {
         destroyed = true;
+        if (channelInfo != null) channelInfo.hide();
         resetPlaybackSwipe();
         handler.removeCallbacksAndMessages(null);
         workers.shutdownNow();
@@ -658,6 +679,7 @@ public class MainActivity extends Activity {
                 + "\n" + (epgStatus.isEmpty() ? epgRepository.getStatus() : epgStatus);
     }
     private void openSettings() {
+        channelInfo.hide();
         handler.removeCallbacks(selectNumber); digits = "";
         showMenu(false);
         epgView.close();
@@ -775,13 +797,14 @@ public class MainActivity extends Activity {
             EpgRepository.NowNext programmes = epgRepository.lookup(channel, System.currentTimeMillis());
             return enabled && programmes.current != null ? "正在播出 · " + programmes.current.title : "";
         });
-        if (!enabled) { menu.setProgramme("", ""); return; }
+        if (!enabled) { channelInfo.setProgramme("", ""); return; }
         EpgRepository.NowNext programmes = epgRepository.lookup(channels.get(channelIndex), now);
         String current = programmes.current == null ? "暂无正在播出的节目" : programmes.current.title;
         String next = programmes.next == null ? "" : new SimpleDateFormat("HH:mm", Locale.CHINA).format(new Date(programmes.next.start)) + " · " + programmes.next.title;
-        menu.setProgramme(current, next);
+        channelInfo.setProgramme(current, next);
     }
     private void openProgramme() {
+        channelInfo.hide();
         if (channels.isEmpty()) return;
         showMenu(false);
         long now = System.currentTimeMillis();
@@ -990,7 +1013,8 @@ public class MainActivity extends Activity {
                 else {
                     videoReady = true;
                     handler.removeCallbacks(noVideoHint);
-                    showHud("确定打开频道菜单", false, 2400);
+                    handler.removeCallbacks(hideHud);
+                    hud.setVisibility(View.GONE);
                 }
             });
         }

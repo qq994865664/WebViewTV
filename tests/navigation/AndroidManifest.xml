@@ -7,4 +7,5 @@
     </application>
     <instrumentation android:name=".NavigationTest" android:targetPackage="com.vasthread.webviewtv.navigationtest" />
     <instrumentation android:name=".FallbackTest" android:targetPackage="com.vasthread.webviewtv.navigationtest" />
+    <instrumentation android:name=".InformationTest" android:targetPackage="com.vasthread.webviewtv.navigationtest" />
 </manifest>

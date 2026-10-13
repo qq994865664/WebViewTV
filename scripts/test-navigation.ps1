@@ -3,7 +3,7 @@ param(
     [string]$Jdk='D:\FangteToolchains\jdk17\jdk-17.0.20.1+1',
     [string]$Adb='C:\Program Files\Netease\MuMu\nx_device\15.0\shell\adb.exe',
     [string]$Serial='emulator-5554',
-    [ValidateSet('Navigation','Fallback')][string]$Suite='Navigation'
+    [ValidateSet('Navigation','Fallback','Information')][string]$Suite='Navigation'
 )
 $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot -Parent
@@ -28,4 +28,4 @@ $result=& $Adb -s $Serial shell am instrument -w -r "com.vasthread.webviewtv.nav
 $instrumentExit=$LASTEXITCODE
 $result | Set-Content -LiteralPath (Join-Path $testBuild 'result.txt') -Encoding utf8
 $result
-if ($instrumentExit -ne 0 -or ($result -join "`n") -notmatch 'PASS \d+ (navigation|fallback) assertions' -or ($result -join "`n") -notmatch 'INSTRUMENTATION_CODE: -1') { throw "$Suite regression failed. Evidence: $testBuild" }
+if ($instrumentExit -ne 0 -or ($result -join "`n") -notmatch 'PASS \d+ (navigation|fallback|information) assertions' -or ($result -join "`n") -notmatch 'INSTRUMENTATION_CODE: -1') { throw "$Suite regression failed. Evidence: $testBuild" }

@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.5` / versionCode 13，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.6` / versionCode 14，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.6：换台后独立显示五秒频道信息
+
+新增独立的 `ChannelInfoView`，从列表菜单移出频道与节目信息。首次进入播放或切换到不同频道时显示五秒，连续换台重置计时，节目单刷新和同频道切源只更新内容。菜单恢复完整高度，选台时先立即关闭列表，打开菜单、设置、节目单、画中画以及失焦、后台和销毁均隐藏信息。浮层不拦截触摸、不抢遥控焦点；播放恢复后仅清除加载提示，不额外弹出频道操作提示。详见 [release-046.md](release-046.md)。
 
 ### 0.4.5：上下翻页与半透明频道菜单
 

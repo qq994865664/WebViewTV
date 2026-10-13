@@ -46,13 +46,11 @@ public final class TvMenuView extends FrameLayout {
     private final Map<String,Integer> categoryCounts = new HashMap<>();
     private final ArrayList<Integer> visibleChannels = new ArrayList<>();
     private Set<String> favorites = new HashSet<>();
-    private final LinearLayout panel, informationCard;
+    private final LinearLayout panel;
     private final ListView categoryList, channelList;
     private final CategoryAdapter categoryAdapter;
     private final ChannelAdapter channelAdapter;
-    private final TextView sectionLabel, playingName, playingSource, emptyLabel, closeButton, settingsButton;
-    private final TextView nowProgramme, nextProgramme;
-    private final LinearLayout programmeInfo;
+    private final TextView sectionLabel, emptyLabel, closeButton, settingsButton;
     private Function<JSONObject,String> programmeProvider;
     private final TextView[] tools = new TextView[5];
     private String selectedCategory = FAVORITES;
@@ -86,7 +84,7 @@ public final class TvMenuView extends FrameLayout {
         panel.setElevation(px(12));
         panel.setClickable(true);
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(px(620), MATCH_PARENT, Gravity.LEFT);
-        panelParams.setMargins(px(24), px(24), 0, px(148));
+        panelParams.setMargins(px(24), px(24), 0, px(24));
         addView(panel, panelParams);
 
         LinearLayout header = horizontal();
@@ -155,36 +153,6 @@ public final class TvMenuView extends FrameLayout {
         lists.addView(channelArea, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
         panel.addView(lists, new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1));
         addDivider(panel);
-
-        informationCard = vertical();
-        informationCard.setPadding(px(14), px(8), px(14), px(10));
-        informationCard.setBackground(shape(0xCC142238, 20, 0x665F7898, 1));
-        informationCard.setElevation(px(12));
-        informationCard.setClickable(true);
-        FrameLayout.LayoutParams informationParams = new FrameLayout.LayoutParams(px(760), px(108), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        informationParams.bottomMargin = px(24);
-        addView(informationCard, informationParams);
-        LinearLayout nowPlaying = horizontal();
-        nowPlaying.setPadding(px(12), 0, px(12), 0);
-        LinearLayout currentInfo = vertical();
-        currentInfo.setGravity(Gravity.CENTER_VERTICAL);
-        currentInfo.addView(text("正在播放", 11, ACCENT), new LinearLayout.LayoutParams(MATCH_PARENT, px(18)));
-        playingName = text("选择一个频道开始观看", 20, INK);
-        playingName.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        currentInfo.addView(playingName, new LinearLayout.LayoutParams(MATCH_PARENT, px(28)));
-        nowPlaying.addView(currentInfo, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
-        playingSource = text("", 14, MUTED);
-        playingSource.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        nowPlaying.addView(playingSource, new LinearLayout.LayoutParams(px(88), MATCH_PARENT));
-        informationCard.addView(nowPlaying, new LinearLayout.LayoutParams(MATCH_PARENT, px(50)));
-        programmeInfo = vertical();
-        programmeInfo.setPadding(px(12), 0, px(12), px(4));
-        nowProgramme = text("", 13, 0xFFC7DCF3);
-        nextProgramme = text("", 12, MUTED);
-        programmeInfo.addView(nowProgramme, new LinearLayout.LayoutParams(MATCH_PARENT, px(18)));
-        programmeInfo.addView(nextProgramme, new LinearLayout.LayoutParams(MATCH_PARENT, px(18)));
-        programmeInfo.setVisibility(GONE);
-        informationCard.addView(programmeInfo, new LinearLayout.LayoutParams(MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout toolBar = horizontal();
         toolBar.setPadding(px(6), 0, px(6), 0);
@@ -278,13 +246,8 @@ public final class TvMenuView extends FrameLayout {
         }
         if (currentIndex >= 0) {
             JSONObject current = channels.get(currentIndex);
-            playingName.setText(current.optString("name", "未命名频道"));
-            playingSource.setText(currentSourceCount > 0
-                    ? "源 " + (currentSource + 1) + " / " + currentSourceCount : "暂无播放源");
             tools[0].setText(favorites.contains(current.optString("name")) ? "★ 已收藏" : "☆ 收藏");
         } else {
-            playingName.setText("选择一个频道开始观看");
-            playingSource.setText("");
             tools[0].setText("☆ 收藏");
         }
         // Rebind only the visible recycled rows, never rebuild a list on a directional key.
@@ -293,17 +256,6 @@ public final class TvMenuView extends FrameLayout {
             int position = channelList.getFirstVisiblePosition() + i;
             if (row instanceof GuideRow && position < visibleChannels.size()) channelAdapter.bind((GuideRow)row, position);
         }
-    }
-
-    /** Current programme hints; empty next text keeps the footer compact. */
-    public void setProgramme(String now, String next) {
-        String current = now == null ? "" : now.trim();
-        String upcoming = next == null ? "" : next.trim();
-        nowProgramme.setText(current.isEmpty() ? "" : "现在 · " + current);
-        nextProgramme.setText(upcoming.isEmpty() ? "" : "接下来 · " + upcoming);
-        nowProgramme.setVisibility(current.isEmpty() ? GONE : VISIBLE);
-        nextProgramme.setVisibility(upcoming.isEmpty() ? GONE : VISIBLE);
-        programmeInfo.setVisibility(current.isEmpty() && upcoming.isEmpty() ? GONE : VISIBLE);
     }
 
     /** The provider must use an in-memory guide; never perform network work while binding rows. */
@@ -363,6 +315,14 @@ public final class TvMenuView extends FrameLayout {
         panel.animate().cancel();
         animate().alpha(0).setDuration(120).withEndAction(() -> { if (!opened) setVisibility(GONE); }).start();
         panel.animate().translationX(-px(18)).setDuration(120).start();
+    }
+
+    /** A selected channel replaces the menu with its information, without overlap. */
+    public void closeImmediately() {
+        close();
+        animate().cancel();
+        panel.animate().cancel();
+        setVisibility(GONE);
     }
 
     public boolean isOpen() { return opened; }
