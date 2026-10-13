@@ -289,6 +289,9 @@ public final class ConfigRepository {
         JSONObject playback = section(config, "playback");
         put(playback, "fastSwitch", bool(playback, "fastSwitch", true));
         put(playback, "rememberSource", bool(playback, "rememberSource", true));
+        int sourceTimeout = integer(playback, "sourceTimeoutSeconds", 15);
+        if (!SourceFailover.validTimeout(sourceTimeout)) throw new IOException("playback.sourceTimeoutSeconds 必须是 0、5、10、15 或 30；0 表示关闭");
+        put(playback, "sourceTimeoutSeconds", sourceTimeout);
         put(config, "playback", playback);
         JSONArray raw = config.optJSONArray("channels");
         if (raw == null) throw new IOException("缺少 channels 频道数组");
@@ -301,6 +304,7 @@ public final class ConfigRepository {
         put(object, "version", 1); put(object, "channelSourceUrl", DEFAULT_CHANNEL_URL); put(object, "channelUpdateHours", 24);
         JSONObject epg = new JSONObject(); put(epg, "enabled", true); put(epg, "url", DEFAULT_EPG_URL); put(epg, "refreshHours", 6);
         JSONObject playback = new JSONObject(); put(playback, "fastSwitch", true); put(playback, "rememberSource", true);
+        put(playback, "sourceTimeoutSeconds", 15);
         put(object, "epg", epg); put(object, "playback", playback);
         return object;
     }

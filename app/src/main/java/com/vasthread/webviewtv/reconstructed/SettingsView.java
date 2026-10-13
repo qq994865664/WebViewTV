@@ -44,13 +44,15 @@ public final class SettingsView extends FrameLayout {
     private static final String[] CHANNEL_LABELS = {"2 小时", "6 小时", "24 小时", "3 天", "5 天", "10 天", "30 天"};
     private static final int[] EPG_HOURS = {2, 6, 24};
     private static final String[] EPG_LABELS = {"2 小时", "6 小时", "24 小时"};
+    private static final int[] SOURCE_SECONDS = {0, 5, 10, 15, 30};
+    private static final String[] SOURCE_LABELS = {"关闭自动切源", "5 秒", "10 秒", "15 秒", "30 秒"};
     private final Listener listener;
     private final float scale;
     private final LinearLayout panel, content;
     private final ScrollView scroll;
     private final TextView closeButton, channelStatusLabel, epgStatusLabel, pathLabel;
     private final EditText channelUrl, epgUrl;
-    private final Spinner channelInterval, epgInterval;
+    private final Spinner channelInterval, epgInterval, sourceTimeout;
     private final CheckBox epgEnabled, fastSwitch, rememberSource;
     private final TextView saveButton, remoteHint;
     private boolean opened;
@@ -147,6 +149,10 @@ public final class SettingsView extends FrameLayout {
         rememberSource = check("记住已成功播放的源");
         playback.addView(rememberSource, new LinearLayout.LayoutParams(MATCH_PARENT, px(50)));
         playback.addView(note("下次打开该频道时，优先使用上次成功播放的源。"), noteParams());
+        playback.addView(label("播放超时自动切源"));
+        sourceTimeout = intervalSpinner(SOURCE_LABELS);
+        playback.addView(sourceTimeout, fieldParams());
+        playback.addView(note("默认 15 秒。未开始播放或持续卡顿达到所选时长，尝试下一个直播源；所有源均失败后停止。打开面板或退到后台时暂停计时。"), noteParams());
         content.addView(playback, sectionParams());
 
         TextView reset = button("恢复默认设置", () -> listener.onResetDefaults());
@@ -178,6 +184,7 @@ public final class SettingsView extends FrameLayout {
         chooseInterval(epgInterval, EPG_HOURS, epg.optInt("refreshHours", 6));
         fastSwitch.setChecked(playback.optBoolean("fastSwitch", true));
         rememberSource.setChecked(playback.optBoolean("rememberSource", true));
+        chooseInterval(sourceTimeout, SOURCE_SECONDS, playback.optInt("sourceTimeoutSeconds", 15));
         pathLabel.setText("本机配置：" + (configPath == null ? "" : configPath));
         updateStatus(channelStatus, epgStatus);
         opened = true;
@@ -217,6 +224,7 @@ public final class SettingsView extends FrameLayout {
             JSONObject playback = new JSONObject();
             playback.put("fastSwitch", fastSwitch.isChecked());
             playback.put("rememberSource", rememberSource.isChecked());
+            playback.put("sourceTimeoutSeconds", SOURCE_SECONDS[sourceTimeout.getSelectedItemPosition()]);
             settings.put("playback", playback);
             listener.onSave(settings);
         } catch (JSONException impossible) {

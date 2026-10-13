@@ -1,0 +1,27 @@
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const code = fs.readFileSync(require('path').join(__dirname, '../app/src/main/assets/js/playback_health.js'), 'utf8');
+let timer, pagehide, reports = [], checks = 0;
+const video = { currentTime: 0, paused: false, ended: false, error: null, readyState: 4, videoWidth: 1920, videoHeight: 1080, attached: true };
+const window = { wvt_video: video, __wvtPlaybackToken: '7:2', main: { reportPlaybackProgress: t => reports.push(t) },
+    setTimeout: fn => { timer = fn; return 1; }, clearTimeout: () => { timer = null; }, addEventListener: (name, fn) => { pagehide = fn; } };
+vm.runInNewContext(code, { window, document: { documentElement: { contains: v => v.attached } } });
+function expect(label, count) { assert.equal(reports.length, count, label); checks++; }
+expect('metadata alone is not progress', 0);
+timer(); expect('stationary clock is not progress', 0);
+video.currentTime = 1; timer(); expect('advancing playing video reports', 1);
+assert.equal(reports[0], '7:2'); checks++;
+video.paused = true; video.currentTime = 2; timer(); expect('paused video does not report', 1);
+video.paused = false; video.readyState = 1; video.currentTime = 3; timer(); expect('buffering is not progress', 1);
+video.readyState = 4; video.error = {}; video.currentTime = 4; timer(); expect('error is not progress', 1);
+video.error = null; video.ended = true; video.currentTime = 5; timer(); expect('ended video is not progress', 1);
+video.ended = false; video.currentTime = 6; timer(); expect('recovery reports', 2);
+video.currentTime = 0; timer(); expect('backward clock is not progress', 2);
+video.attached = false; video.currentTime = 1; timer(); expect('detached video ignored', 2);
+video.attached = true; timer(); expect('reattachment requires new progress', 2);
+video.currentTime = 2; timer(); expect('reattached playback advances', 3);
+window.wvt_video = {...video, currentTime: 30}; timer(); expect('replacement video starts its own baseline', 3);
+window.wvt_video.currentTime = 31; timer(); expect('replacement progress reports', 4);
+pagehide(); assert.equal(timer, null); checks++;
+console.log(`PASS ${checks} playback health assertions`);

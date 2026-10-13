@@ -1,12 +1,14 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.3**（versionCode 11），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.4**（versionCode 12），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.3-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.4-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，右上角进入设置；系统返回键先关闭面板，再显示退出确认。
+
+0.4.4 新增超时自动切源：进入 **设置 → 播放 → 播放超时自动切源**，选择关闭、5 秒、10 秒、15 秒或 30 秒，点击「保存并返回」。默认 15 秒，首次加载失败或播放持续卡顿时尝试下一个来源；同一轮故障中每个来源只尝试一次，全部失败后停止。打开面板和退到后台时暂停计时。详见 [0.4.4 发布说明](docs/release-044.md)。
 
 0.4.2 新增播放画面滑动手势：**上滑下一个频道，下滑上一个频道；左滑下一个直播源，右滑上一个直播源**。松手后每次切换一次，首尾循环；轻点仍打开菜单。菜单、设置和节目单内的滑动用于操作当前面板。单直播源频道会显示提示，不会重复加载。详见 [0.4.2 发布说明](docs/release-042.md)。
 

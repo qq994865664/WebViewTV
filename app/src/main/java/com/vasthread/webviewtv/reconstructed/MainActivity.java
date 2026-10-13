@@ -63,6 +63,10 @@ public class MainActivity extends Activity {
     private String digits = "", injectionScript = "";
     private boolean pageInjected, pageInjectionAttempted, videoReady, buffering, viewportFullscreen;
     private long lastPlaybackKey;
+    private final SourceFailover sourceFailover = new SourceFailover();
+    private int sourceTimeoutSeconds = 15;
+    private boolean playbackPaused;
+    private final Runnable sourceWatchdog = this::checkSourceTimeout;
     private int videoWidth = 16, videoHeight = 9;
     private final Runnable hideHud = () -> { if (hud != null) hud.setVisibility(View.GONE); };
     private final Runnable noVideoHint = () -> {
@@ -131,6 +135,7 @@ public class MainActivity extends Activity {
             scriptPrefix = asset("js/base.js") + "\n" + asset("js/platform_x5.js").replace("window.main.reportVideoLoadingState(isLoading);", "window.main.reportVideoLoadingStateForToken(window.__wvtPlaybackToken,isLoading);") + "\n";
             mainScript = asset("js/main.js");
             scriptSuffix = "\n" + asset("js/tv_fullscreen.js").replace("window.main.reportVideoLoadingState(false);", "window.main.reportVideoLoadingStateForToken(window.__wvtPlaybackToken,false);").replace("window.main.reportViewportFullscreen(viewportWidth, viewportHeight, videoWidth, videoHeight);", "window.main.reportViewportFullscreenForToken(window.__wvtPlaybackToken,viewportWidth,viewportHeight,videoWidth,videoHeight);") + "\n" + asset("js/fast_switch.js");
+            scriptSuffix += "\n" + asset("js/playback_health.js");
             applyPlaybackSettings();
         } catch (Exception error) {
             android.util.Log.e(TAG, "Configuration or assets failed", error);
@@ -187,6 +192,10 @@ public class MainActivity extends Activity {
         JSONObject playback = config.optJSONObject("playback");
         fastSwitch = playback == null || playback.optBoolean("fastSwitch", true);
         rememberSource = playback == null || playback.optBoolean("rememberSource", true);
+        sourceTimeoutSeconds = playback == null ? 15 : playback.optInt("sourceTimeoutSeconds", 15);
+        sourceFailover.configure(sourceTimeoutSeconds);
+        sourceFailover.start(sourceCount, sourceIndex, SystemClock.elapsedRealtime(), false);
+        armSourceWatchdog();
         injectionScript = scriptPrefix + (fastSwitch ? mainScript.replace("wvt_loop() }, 1000)", "wvt_loop() }, 150)") : mainScript) + scriptSuffix;
     }
 
@@ -362,6 +371,10 @@ public class MainActivity extends Activity {
     }
 
     private void playInternal(int index, int source) {
+        playInternal(index, source, false);
+    }
+
+    private void playInternal(int index, int source, boolean retry) {
         if (channels.isEmpty()) return;
         int nextIndex = Math.floorMod(index, channels.size());
         JSONObject channel = channels.get(nextIndex);
@@ -400,7 +413,7 @@ public class MainActivity extends Activity {
         prefs.edit().putInt("last", channelIndex).putString("lastChannelId", channelKey(channel)).apply();
         syncMenu();
         showMenu(false);
-        beginLoading();
+        beginLoading(retry);
         android.util.Log.i(TAG, "play channel=" + (channelIndex + 1) + " source=" + (sourceIndex + 1));
         viewportFullscreen = false;
         web.scrollTo(0, 0);
@@ -420,6 +433,10 @@ public class MainActivity extends Activity {
     }
 
     private void beginLoading() {
+        beginLoading(false);
+    }
+
+    private void beginLoading(boolean retry) {
         videoReady = false;
         firstFrameReported = false;
         switchStarted = SystemClock.elapsedRealtime();
@@ -428,6 +445,35 @@ public class MainActivity extends Activity {
         handler.removeCallbacks(noVideoHint);
         showHud("加载中", true, 0);
         handler.postDelayed(noVideoHint, 18000);
+        sourceFailover.start(sourceCount, sourceIndex, SystemClock.elapsedRealtime(), retry);
+        armSourceWatchdog();
+    }
+
+    private void armSourceWatchdog() {
+        handler.removeCallbacks(sourceWatchdog);
+        if (!destroyed && !playbackPaused && sourceTimeoutSeconds > 0) handler.postDelayed(sourceWatchdog, 500);
+    }
+
+    private void checkSourceTimeout() {
+        if (destroyed || playbackPaused || sourceTimeoutSeconds == 0) return;
+        long now = SystemClock.elapsedRealtime();
+        if (!hasWindowFocus() || menu == null || menu.isOpen() || settingsView.isOpen() || epgView.isOpen()) {
+            sourceFailover.defer(now);
+        } else {
+            int next = sourceFailover.next(now);
+            if (next >= 0) {
+                android.util.Log.i(TAG, "source-timeout channel=" + (channelIndex + 1) + " from=" + (sourceIndex + 1) + " to=" + (next + 1));
+                resetPlaybackSwipe();
+                handler.removeCallbacks(selectNumber); digits = "";
+                playInternal(channelIndex, next, true);
+                showHud("播放超时 · 已自动切换直播源", true, 0);
+            } else if (next == SourceFailover.EXHAUSTED) {
+                handler.removeCallbacks(noVideoHint);
+                showHud(sourceCount <= 1 ? "播放超时 · 当前频道没有备用源" : "所有直播源均超时 · 可手动切源或刷新重试", false, 8000);
+                android.util.Log.i(TAG, "source-exhausted channel=" + (channelIndex + 1));
+            }
+        }
+        armSourceWatchdog();
     }
 
     private void showHud(String message, boolean loading, long duration) {
@@ -566,8 +612,16 @@ public class MainActivity extends Activity {
         if (focused) immersive(); else resetPlaybackSwipe();
     }
     @Override public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); resetPlaybackSwipe(); immersive(); }
-    @Override protected void onPause() { resetPlaybackSwipe(); super.onPause(); if (!isInPictureInPictureMode() && web != null) web.onPause(); }
-    @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+    @Override protected void onPause() {
+        resetPlaybackSwipe(); super.onPause();
+        playbackPaused = !isInPictureInPictureMode();
+        if (playbackPaused) { handler.removeCallbacks(sourceWatchdog); if (web != null) web.onPause(); }
+    }
+    @Override protected void onResume() {
+        super.onResume(); playbackPaused = false;
+        if (web != null) web.onResume();
+        sourceFailover.defer(SystemClock.elapsedRealtime()); armSourceWatchdog();
+    }
     @Override public void onBackPressed() { handleBack(); }
     @Override protected void onDestroy() {
         destroyed = true;
@@ -908,10 +962,17 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 if (destroyed || !token.equals(getPlaybackToken()) || firstFrameReported || channels.isEmpty()) return;
                 firstFrameReported = true;
+                sourceFailover.progress(SystemClock.elapsedRealtime());
                 if (rememberSource) prefs.edit().putString("source:" + channelKey(channels.get(channelIndex)),
                         urlOf(channels.get(channelIndex).optJSONArray("urls"), sourceIndex)).apply();
                 android.util.Log.i(TAG, "switch-ready channel=" + (channelIndex + 1) + " source=" + (sourceIndex + 1)
                         + " ms=" + (SystemClock.elapsedRealtime() - switchStarted) + " evidence=" + evidence + " fast=" + fastSwitch);
+            });
+        }
+        @JavascriptInterface public void reportPlaybackProgress(String token) {
+            runOnUiThread(() -> {
+                if (destroyed || !Objects.equals(token, getPlaybackToken())) return;
+                sourceFailover.progress(SystemClock.elapsedRealtime());
             });
         }
         @JavascriptInterface public String getExtra() { return extra; }

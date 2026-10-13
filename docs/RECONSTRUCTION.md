@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.3` / versionCode 11，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.4` / versionCode 12，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.4：可配置超时自动切源
+
+增加 `playback.sourceTimeoutSeconds`，支持关闭（0）和 5、10、15、30 秒，默认 15 秒。通过首帧和带页面 token 的视频时间推进信号判断起播及持续播放；加载失败或持续无进展达到时限后，依次尝试未试过的来源。全部失败后停止，单源只提示；手动换台、切源和刷新重新开始一轮，实际播放恢复后可处理后续独立故障。面板、失焦和后台暂停计时，恢复后重新给予等待时间。设置保存、JSON 导入及验证脚本同步支持该字段，远程频道更新继续保留本机播放设置。测试详见 [release-044.md](release-044.md)。
 
 ### 0.4.3：上下换台跟手动画
 

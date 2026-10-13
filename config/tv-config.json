@@ -9,7 +9,8 @@
   },
   "playback": {
     "fastSwitch": true,
-    "rememberSource": true
+    "rememberSource": true,
+    "sourceTimeoutSeconds": 15
   },
   "channels": [
     {

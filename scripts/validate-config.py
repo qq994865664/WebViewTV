@@ -127,6 +127,9 @@ def validate_config(config):
     playback = require_object(config.get("playback"), "playback")
     for key in ("fastSwitch", "rememberSource"):
         require_bool(playback.get(key), "playback." + key)
+    source_timeout = require_integer(playback.get("sourceTimeoutSeconds", 15), "playback.sourceTimeoutSeconds")
+    if source_timeout not in (0, 5, 10, 15, 30):
+        fail("playback.sourceTimeoutSeconds", "必须是 0、5、10、15 或 30；0 表示关闭")
 
     channels = config.get("channels")
     if not isinstance(channels, list) or not 1 <= len(channels) <= 5000:
