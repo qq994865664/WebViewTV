@@ -1,0 +1,45 @@
+# 实现范围与重建记录
+
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.3.1-research` / versionCode 5，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+
+## 来源与保留署名
+
+Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为本次研究实现。频道和网站适配器 JSON 来自所提供 APK 的 assets 解码结果，包含 795 个频道条目、984 个网页来源、37 个分组、32 个网站适配器。内置初始化与可编辑配置修正了原快照中两条海峡卫视 URL 的中文误前缀；原研究目录保留未改动的解码证据。
+
+`app/src/main/assets/js/` 中的 `base.js`、`platform_x5.js`、`main.js`、`remove_controls.js` 保留原 APK 资源及 **vasthread / WebView电视** 署名，所提供 APK 未包含明确覆盖这些打包资源的授权文件，原权利归属不因重建而改变；没有为提取资源另加开源许可证。`tv_fullscreen.js`、`fast_switch.js` 为新增控制器。桥接依据原 APK 的频道、URL、网站适配器与 WebView 代码，当前保留 `main.getWebPageAdapter/getExtra/sendKeyEvent/setVideoSize/reportVideoLoadingState/schemeEnterFullscreen` 等接口行为。
+
+本仓库包含独立构建所需代码和 assets，不依赖本机研究目录。原 APK、完整反编译目录、运行证据、缓存、APK 产物和调试签名私钥未纳入仓库。历史证据保存在本机 `D:\WebViewTV\webviewtv-research\evidence`；原始研究报告与解码结果仍保留在其上级研究工程。此目录结构不同于仓库，历史验证文档中出现的 `reconstructed/`、`reports/`、`evidence/` 均指当时本机研究目录。
+
+## 实现与兼容范围
+
+应用使用 Android 系统 WebView，按网站适配器注入播放器脚本；支持桌面 UA、DOM 全屏、WebChromeClient 网站全屏视图与可选画中画。它没有重建原应用的腾讯 X5/Gecko 内核、所有原设置页面、代理重试、公告或统计 SDK。原 `server_config.json` 保留在本机研究目录；新版工程已移除这份未使用的服务器配置。
+
+原生菜单采用分组与频道双栏、当前频道和收藏标记，支持触摸、遥控焦点及数字选台。ListView 复用频道行；关闭菜单时 WebView 占满播放区。菜单以 720px 屏幕高度等比缩放。WebView 中视频保留原比例，节目比例不同时可出现正常黑边。跨域 iframe 只能控制外层布局，内层播放器由网站控制。
+
+注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
+
+## 版本变化
+
+### 0.1.1：修复持续提示 JS 注入失败
+
+Windows aapt2 的 `-A` 曾将嵌套资源写成 `assets/js\base.js`，Android 按 `js/base.js` 读取时失败，进度回调又重复重试。离线构建改用 JDK jar 写入资产，通过 `verify-assets.ps1` 检查 ZIP 正斜杠路径与所有资源 SHA-256。注入结果通过 JS 回调确认，每页失败只提示一次，详细错误进入日志。
+
+### 0.2.0：电视菜单与自动全屏
+
+新增深蓝双栏菜单与遥控焦点处理；选台、切源、刷新统一收起菜单并进入全屏。`tv_fullscreen.js` 复用网站播放器 DOM，解除祖先变换、裁切与滚动限制，不重建播放器。可视区使用 `documentElement.clientWidth/clientHeight`，兼容部分站点的 HTML 缩放。冷启动恢复、数字选台、收藏和切源在 MuMu 上进行观察验证。
+
+### 0.3.0：设置、频道配置、EPG 与快速切台
+
+设置集中提供频道编辑、UTF-8 JSON 导入导出、缓存周期、EPG 与播放选项；Android15 使用系统文件选择器。无效导入或下载保留现有配置，原子写入并保留有效备份。播放画面按返回显示退出确认，退出后停止播放并移除任务；面板内返回先关闭面板。
+
+EPG 使用用户指定的 [FreeEPG 中国源](https://free-epg.de/countries/cn)。原 795 条记录中，265 条有明确映射，涉及 212 个名称；未把节目源中的其他频道添加到列表。获取与 XMLTV 流式解析在后台执行，只缓存已匹配频道以及过去 48 小时至未来 8 天的节目。无时区信息按北京时间；节目缺失或空档显示暂无，不生成节目内容。映射审计见 [free-epg-mapping.md](free-epg-mapping.md)。
+
+快速切台使用较早的安全注入、150ms 初期扫描、成功来源记忆、UA 复用与相邻站点连接提示；稳定播放后扫描降为 1500ms，不后台预播。真实首帧优先采用 `requestVideoFrameCallback`；旧 WebView 可回退为经过播放状态检查的 `playing-fallback`，不把元数据加载视为首帧。MuMu 的 12 次有效样本平均首帧从 2543.0ms 降至 2298.3ms，网络与样本限制见 [features-03-validation.md](features-03-validation.md)。该报告的 APK 哈希与版本均属于 0.3.0。
+
+### 0.3.1：使用 GitHub 维护频道
+
+默认频道源改为 `https://raw.githubusercontent.com/qq994865664/WebViewTV/main/config/tv-config.json`，默认周期 24 小时。更新只合并 `channels`，不覆盖本机 EPG、播放与缓存周期。GitHub main 分支提交后，应用下次到期或设置中手动更新时读取新列表；运行期间每分钟检查，关闭期间不唤醒设备。
+
+旧安装中的空源地址进行一次升级迁移，已有非空自定义地址保持。迁移后主动清空仍能停用远程更新。持续频道维护应修改仓库；本机编辑在以后远程更新时会被仓库内容覆盖。
+
+工程资产直接包含于仓库，PowerShell 构建支持 `-Sdk`、`-Jdk` 及 `ANDROID_HOME`、`JAVA_HOME`。配置提交前可运行根目录 `scripts/validate-config.py`；所有字段与手工维护方式见 [配置说明](../config/CONFIG.md)。

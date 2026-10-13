@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "channelSourceUrl": "",
+  "channelUpdateHours": 24,
+  "epg": {
+    "enabled": true,
+    "url": "https://free-epg.de/api/epg/cn.xml.gz",
+    "refreshHours": 6
+  },
+  "playback": {
+    "fastSwitch": true,
+    "rememberSource": true
+  },
+  "channels": [
+    {
+      "id": "cctv1",
+      "epgId": "CCTV1",
+      "name": "CCTV-1 综合",
+      "group": "央视",
+      "urls": [
+        {"url": "https://tv.cctv.com/live/cctv1/"},
+        {"url": "https://www.yangshipin.cn/tv/home?pid=600001859"}
+      ]
+    },
+    {
+      "id": "cctv2",
+      "epgId": "CCTV2",
+      "name": "CCTV-2 财经",
+      "group": "央视",
+      "urls": [
+        {"url": "https://tv.cctv.com/live/cctv2/"}
+      ]
+    }
+  ]
+}
