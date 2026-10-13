@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.2` / versionCode 10，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.3` / versionCode 11，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.3：上下换台跟手动画
+
+WebView 和网页自定义全屏视图放入独立播放容器，上下滑动时小幅跟手位移；原生浮层提示目标频道及是否可松手切换。松手后立即请求频道，260ms 缓出归位和渐隐；短滑取消以 180ms 回弹。新拖动取消旧动画，打开菜单、普通选台、窗口失焦、暂停和方向变化均清理动画及手势状态。拖动期间只在提示变化时更新文字，避免重复布局；系统关闭动画时直接切换。详见 [release-043.md](release-043.md)。
 
 ### 0.4.2：播放画面滑动手势
 

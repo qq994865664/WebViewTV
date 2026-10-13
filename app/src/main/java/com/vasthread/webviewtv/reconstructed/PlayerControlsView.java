@@ -10,13 +10,15 @@ public final class PlayerControlsView extends View {
     public interface Listener {
         void onChannelSwipe(int step);
         void onSourceSwipe(int step);
+        default void onChannelDrag(float distance, boolean ready) { }
+        default void onChannelDragCancelled() { }
     }
 
     private final Listener listener;
     private final int touchSlop;
     private final float swipeDistance;
     private float startX, startY;
-    private boolean tracking, moved;
+    private boolean tracking, moved, previewing;
     private long downTime;
 
     public PlayerControlsView(Context context, Listener listener) {
@@ -28,9 +30,10 @@ public final class PlayerControlsView extends View {
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
-        if (!isEnabled()) { tracking = false; return super.onTouchEvent(event); }
+        if (!isEnabled()) { cancelGesture(); return super.onTouchEvent(event); }
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                cancelGesture();
                 tracking = event.getPointerCount() == 1;
                 moved = false;
                 startX = event.getX();
@@ -39,7 +42,7 @@ public final class PlayerControlsView extends View {
                 return true;
             case MotionEvent.ACTION_POINTER_DOWN:
             case MotionEvent.ACTION_CANCEL:
-                tracking = false;
+                cancelGesture();
                 return true;
             case MotionEvent.ACTION_MOVE:
                 if (tracking) {
@@ -47,6 +50,7 @@ public final class PlayerControlsView extends View {
                         recordMovement(event.getHistoricalX(i), event.getHistoricalY(i));
                     }
                     recordMovement(event.getX(), event.getY());
+                    preview(event.getX() - startX, event.getY() - startY);
                 }
                 return true;
             case MotionEvent.ACTION_UP:
@@ -56,11 +60,15 @@ public final class PlayerControlsView extends View {
                 float dx = event.getX() - startX, dy = event.getY() - startY;
                 float horizontal = Math.abs(dx), vertical = Math.abs(dy);
                 if (horizontal >= swipeDistance && horizontal > vertical * 1.4f) {
+                    cancelPreview();
                     listener.onSourceSwipe(dx < 0 ? 1 : -1);
                 } else if (vertical >= swipeDistance && vertical > horizontal * 1.4f) {
+                    preview(dx, dy);
+                    previewing = false;
                     listener.onChannelSwipe(dy < 0 ? 1 : -1);
-                } else if (!moved && event.getEventTime() - downTime < ViewConfiguration.getLongPressTimeout()) {
-                    performClick();
+                } else {
+                    cancelPreview();
+                    if (!moved && event.getEventTime() - downTime < ViewConfiguration.getLongPressTimeout()) performClick();
                 }
                 return true;
             default:
@@ -72,18 +80,34 @@ public final class PlayerControlsView extends View {
         if (Math.abs(x - startX) > touchSlop || Math.abs(y - startY) > touchSlop) moved = true;
     }
 
+    private void preview(float dx, float dy) {
+        if (Math.abs(dy) > touchSlop && Math.abs(dy) > Math.abs(dx) * 1.4f) {
+            previewing = true;
+            listener.onChannelDrag(dy, Math.abs(dy) >= swipeDistance);
+        } else cancelPreview();
+    }
+
+    private void cancelPreview() {
+        if (previewing) { previewing = false; listener.onChannelDragCancelled(); }
+    }
+
+    public void cancelGesture() {
+        tracking = false;
+        cancelPreview();
+    }
+
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused);
-        if (!focused) tracking = false;
+        if (!focused) cancelGesture();
     }
 
     @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
         super.onSizeChanged(width, height, oldWidth, oldHeight);
-        tracking = false;
+        cancelGesture();
     }
 
     @Override protected void onDetachedFromWindow() {
-        tracking = false;
+        cancelGesture();
         super.onDetachedFromWindow();
     }
 }

@@ -50,9 +50,10 @@ public class MainActivity extends Activity {
     private JSONArray adapters = new JSONArray();
     private SharedPreferences prefs;
     private WebView web;
-    private FrameLayout root, fullscreen;
+    private FrameLayout root, playbackStage, fullscreen;
     private TvMenuView menu;
-    private View playerControls;
+    private PlayerControlsView playerControls;
+    private ChannelSwipeAnimation channelSwipeAnimation;
     private LinearLayout hud;
     private TextView status;
     private ProgressBar progress;
@@ -197,13 +198,15 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         setContentView(root);
+        playbackStage = new FrameLayout(this);
+        root.addView(playbackStage, new FrameLayout.LayoutParams(-1, -1));
         web = new WebView(this);
         web.setBackgroundColor(Color.BLACK);
         web.setOnScrollChangeListener((view, x, y, oldX, oldY) -> {
             // Some sites scroll to their former player box after loading. The TV player stays at the origin.
             if (viewportFullscreen && (x != 0 || y != 0)) web.scrollTo(0, 0);
         });
-        root.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        playbackStage.addView(web, new FrameLayout.LayoutParams(-1, -1));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -254,7 +257,7 @@ public class MainActivity extends Activity {
                 fullscreen = new FrameLayout(MainActivity.this);
                 fullscreen.setBackgroundColor(Color.BLACK);
                 fullscreen.addView(view, new FrameLayout.LayoutParams(-1, -1));
-                root.addView(fullscreen, new FrameLayout.LayoutParams(-1, -1));
+                playbackStage.addView(fullscreen, new FrameLayout.LayoutParams(-1, -1));
                 playerControls.bringToFront();
                 hud.bringToFront();
                 menu.bringToFront();
@@ -266,9 +269,17 @@ public class MainActivity extends Activity {
         });
 
         // Keep tap and remote controls in the native layer, including HTML custom fullscreen.
+        channelSwipeAnimation = new ChannelSwipeAnimation(this, playbackStage);
+        root.addView(channelSwipeAnimation, new FrameLayout.LayoutParams(-1, -1));
         playerControls = new PlayerControlsView(this, new PlayerControlsView.Listener() {
             public void onChannelSwipe(int step) { swipePlayback(false, step); }
             public void onSourceSwipe(int step) { swipePlayback(true, step); }
+            public void onChannelDrag(float distance, boolean ready) {
+                if (!canSwipePlayback() || channels.isEmpty()) return;
+                int next = Math.floorMod(channelIndex + (distance < 0 ? 1 : -1), channels.size());
+                channelSwipeAnimation.drag(distance, ready, channels.get(next).optString("name"));
+            }
+            public void onChannelDragCancelled() { channelSwipeAnimation.cancelDrag(); }
         });
         playerControls.setBackgroundColor(Color.TRANSPARENT);
         playerControls.setFocusable(true);
@@ -346,6 +357,11 @@ public class MainActivity extends Activity {
     }
 
     private void play(int index, int source) {
+        resetPlaybackSwipe();
+        playInternal(index, source);
+    }
+
+    private void playInternal(int index, int source) {
         if (channels.isEmpty()) return;
         int nextIndex = Math.floorMod(index, channels.size());
         JSONObject channel = channels.get(nextIndex);
@@ -427,14 +443,26 @@ public class MainActivity extends Activity {
     private void switchSource(int step) { play(channelIndex, sourceIndex + step); }
 
     private void swipePlayback(boolean source, int step) {
-        if (destroyed || isInPictureInPictureMode() || menu.isOpen()
-                || settingsView.isOpen() || epgView.isOpen()) return;
+        if (!canSwipePlayback()) { resetPlaybackSwipe(); return; }
         handler.removeCallbacks(selectNumber);
         digits = "";
         if (source) {
             if (sourceCount <= 1) showHud("当前频道仅有一个直播源", false, 1800);
             else switchSource(step);
-        } else play(channelIndex + step, -999);
+        } else {
+            playInternal(channelIndex + step, -999);
+            channelSwipeAnimation.finish();
+        }
+    }
+
+    private boolean canSwipePlayback() {
+        return !destroyed && !isInPictureInPictureMode() && !menu.isOpen()
+                && !settingsView.isOpen() && !epgView.isOpen();
+    }
+
+    private void resetPlaybackSwipe() {
+        if (playerControls != null) playerControls.cancelGesture();
+        if (channelSwipeAnimation != null) channelSwipeAnimation.reset();
     }
     private void refresh() { showMenu(false); hideFullscreen(); viewportFullscreen = false; web.scrollTo(0, 0); beginLoading(); web.reload(); }
 
@@ -472,7 +500,7 @@ public class MainActivity extends Activity {
 
     private void hideFullscreen() {
         if (fullscreen == null) return;
-        root.removeView(fullscreen);
+        playbackStage.removeView(fullscreen);
         fullscreen = null;
         WebChromeClient.CustomViewCallback callback = fullscreenCallback;
         fullscreenCallback = null;
@@ -480,12 +508,13 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu(boolean show) {
-        if (show) { syncMenu(); menu.open(); menu.bringToFront(); }
+        if (show) { resetPlaybackSwipe(); syncMenu(); menu.open(); menu.bringToFront(); }
         else { menu.close(); playerControls.requestFocus(); immersive(); }
     }
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }
     private void pip() {
+        resetPlaybackSwipe();
         try {
             showMenu(false);
             hud.setVisibility(View.GONE);
@@ -532,16 +561,20 @@ public class MainActivity extends Activity {
         return super.dispatchKeyEvent(event);
     }
 
-    @Override public void onWindowFocusChanged(boolean focused) { super.onWindowFocusChanged(focused); if (focused) immersive(); }
-    @Override public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); immersive(); }
-    @Override protected void onPause() { super.onPause(); if (!isInPictureInPictureMode() && web != null) web.onPause(); }
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused) immersive(); else resetPlaybackSwipe();
+    }
+    @Override public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); resetPlaybackSwipe(); immersive(); }
+    @Override protected void onPause() { resetPlaybackSwipe(); super.onPause(); if (!isInPictureInPictureMode() && web != null) web.onPause(); }
     @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
     @Override public void onBackPressed() { handleBack(); }
     @Override protected void onDestroy() {
         destroyed = true;
+        resetPlaybackSwipe();
         handler.removeCallbacksAndMessages(null);
         workers.shutdownNow();
-        if (web != null) { web.removeJavascriptInterface("main"); root.removeView(web); web.destroy(); }
+        if (web != null) { web.removeJavascriptInterface("main"); playbackStage.removeView(web); web.destroy(); }
         super.onDestroy();
     }
 

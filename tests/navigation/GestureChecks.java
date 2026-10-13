@@ -8,6 +8,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 import com.vasthread.webviewtv.reconstructed.PlayerControlsView;
+import com.vasthread.webviewtv.reconstructed.ChannelSwipeAnimation;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -19,6 +20,8 @@ final class GestureChecks {
     private FrameLayout root;
     private PlayerControlsView controls;
     private View overlay;
+    private View playback;
+    private ChannelSwipeAnimation animation;
     private float cx, cy, distance;
     private long time;
     private int checks;
@@ -31,9 +34,15 @@ final class GestureChecks {
     int run() {
         instrumentation.runOnMainSync(() -> {
             root = new FrameLayout(activity);
+            playback = new View(activity);
+            root.addView(playback, new FrameLayout.LayoutParams(-1, -1));
+            animation = new ChannelSwipeAnimation(activity, playback);
+            root.addView(animation, new FrameLayout.LayoutParams(-1, -1));
             controls = new PlayerControlsView(activity, new PlayerControlsView.Listener() {
-                public void onChannelSwipe(int step) { actions.add("channel:" + step); }
+                public void onChannelSwipe(int step) { actions.add("channel:" + step); animation.finish(); }
                 public void onSourceSwipe(int step) { actions.add("source:" + step); }
+                public void onChannelDrag(float distance, boolean ready) { animation.drag(distance, ready, "Test channel"); }
+                public void onChannelDragCancelled() { animation.cancelDrag(); }
             });
             controls.setOnClickListener(v -> actions.add("tap"));
             root.addView(controls, new FrameLayout.LayoutParams(-1, -1));
@@ -79,7 +88,50 @@ final class GestureChecks {
             } catch (Throwable error) { failure[0] = error; }
         });
         if (failure[0] != null) throw new AssertionError("Gesture regression", failure[0]);
+        checkOnMain(() -> {
+            down(); move(0, -distance, 100);
+            verify("up follows finger", playback.getTranslationY()<0 && animation.getVisibility()==View.VISIBLE && animation.getAlpha()>0);
+            expect("preview must not switch");
+            up(0, -distance, 250);
+            expect("switch starts without waiting for animation", "channel:1");
+        });
+        SystemClock.sleep(400); instrumentation.waitForIdleSync();
+        checkOnMain(() -> verifyRest("committed animation completes"));
+        checkOnMain(() -> {
+            down(); move(0, distance*.4f, 100);
+            verify("short drag follows finger", playback.getTranslationY()>0);
+            up(0, distance*.4f, 250); expect("short drag only rebounds");
+        });
+        SystemClock.sleep(300); instrumentation.waitForIdleSync();
+        checkOnMain(() -> verifyRest("cancel returns to origin"));
+        checkOnMain(() -> {
+            swipe(0, -distance, 250); expect("first rapid swipe", "channel:1");
+            down(); move(0, distance, 100);
+            verify("new drag replaces old animation", playback.getTranslationY()>0);
+            up(0, distance, 250); expect("second rapid swipe", "channel:-1");
+            controls.cancelGesture(); animation.reset();
+            verifyRest("panel reset removes animation");
+            down(); move(0, -distance, 100);
+            controls.cancelGesture(); animation.reset();
+            up(0, -distance, 250);
+            expect("interrupted drag does not change channel");
+        });
+        SystemClock.sleep(350); instrumentation.waitForIdleSync();
+        checkOnMain(() -> verifyRest("cancelled animator cannot move playback later"));
         return checks;
+    }
+
+    private void checkOnMain(Runnable check) {
+        Throwable[] failure = new Throwable[1];
+        instrumentation.runOnMainSync(() -> { try { check.run(); } catch (Throwable error) { failure[0]=error; } });
+        if (failure[0]!=null) throw new AssertionError("Animation regression", failure[0]);
+    }
+    private void verify(String label, boolean condition) {
+        if (!condition) throw new AssertionError(label);
+        checks++;
+    }
+    private void verifyRest(String label) {
+        verify(label, Math.abs(playback.getTranslationY())<.01f && animation.getVisibility()!=View.VISIBLE && animation.getAlpha()==0);
     }
 
     private void expect(String label, String... expected) {
