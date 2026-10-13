@@ -190,7 +190,7 @@ public class MainActivity extends Activity {
     }
 
     private int px(int reference) {
-        return Math.max(1, Math.round(reference * getResources().getDisplayMetrics().heightPixels / 720f));
+        return Math.max(1, Math.round(reference * UiScale.landscape(this, 960)));
     }
 
     private void createUi() {

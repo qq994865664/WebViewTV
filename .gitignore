@@ -10,4 +10,6 @@ local.properties
 *.p12
 *.apk
 *.idsig
+signing/
+*.clixml
 __pycache__/

@@ -45,8 +45,7 @@ public final class EpgView extends FrameLayout {
     public EpgView(Context context, Runnable onClose) {
         super(context);
         this.onClose = onClose;
-        scale = Math.min(getResources().getDisplayMetrics().heightPixels / 720f,
-                getResources().getDisplayMetrics().widthPixels / 1024f);
+        scale = UiScale.landscape(context, 1024);
         setBackgroundColor(0xD9040A14);
         setClickable(true);
         setFocusable(false);

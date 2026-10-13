@@ -1,6 +1,14 @@
 # WebView电视
 
-面向 Android 电视与遥控操作的 WebView 直播播放器。当前版本为 **0.3.3**（versionCode 7），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.0**（versionCode 8），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+
+## 下载安装
+
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.0-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+
+手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，右上角进入设置；系统返回键先关闭面板，再显示退出确认。
+
+Release 使用正式私有密钥签名、关闭应用调试，带有旧本机开发签名的升级记录，可从本项目此前安装覆盖升级并保留配置。下载页同时提供 SHA-256 校验文件。构建与验证细节见 [发布说明](docs/release-040.md)。
 
 - 深色双栏频道菜单，支持分组、收藏、遥控焦点、数字选台与备用来源。
 - 采用已确认的 D 款圆润 TV 图标，统一桌面图标、电视启动横幅与菜单标识。
@@ -53,7 +61,7 @@ python .\scripts\validate-config.py
 
 ## 构建
 
-工程是 Android Java 项目，最低 Android 8.0（API 26），目标 API 35，编译 SDK 36。需要 JDK 17、Android SDK Platform 36 和 Build Tools 36.0.0。
+工程是 Android Java 项目，最低 Android 9（API 28），目标 API 35，编译 SDK 36。需要 JDK 17、Android SDK Platform 36 和 Build Tools 36.0.0。
 
 ### Windows 离线构建
 
@@ -66,6 +74,8 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Sdk 'C:\Android\Sdk' -Jdk 
 也可通过 `ANDROID_HOME`、`JAVA_HOME` 指定安装目录后直接运行 `build.ps1`。脚本保留本机研究环境的路径作为最后回退值；其他机器应显式传入参数或设置环境变量。所需工具已安装后，构建不依赖研究目录或网络下载。
 
 输出为 `dist/webviewtv-reconstructed-debug.apk`。脚本验证 APK 签名、打包资源路径和哈希。调试密钥在首次构建时生成到 `build/debug.keystore`，未纳入仓库；后续覆盖安装应保留本机同一签名密钥。
+
+正式发布使用 `build.ps1 -Release -KeyStore <私有密钥> -Lineage <签名升级记录>`，密码从 `WVT_RELEASE_STORE_PASSWORD` 进程环境读取。已配置本机签名资料时，运行 `scripts/build-release-local.ps1`，它解密 Windows 当前用户保存的凭据并在构建后清除进程中的密码。私钥和密码不在仓库中；正式升级需持续使用同一发布密钥。
 
 ### Android Studio
 

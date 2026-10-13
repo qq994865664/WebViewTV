@@ -58,8 +58,7 @@ public final class SettingsView extends FrameLayout {
     public SettingsView(Context context, Listener listener) {
         super(context);
         this.listener = listener;
-        scale = Math.min(getResources().getDisplayMetrics().heightPixels / 720f,
-                getResources().getDisplayMetrics().widthPixels / 960f);
+        scale = UiScale.landscape(context, 960);
         setBackgroundColor(0xDB040A14);
         setVisibility(GONE);
         setClickable(true);

@@ -64,8 +64,7 @@ public final class TvMenuView extends FrameLayout {
         super(context);
         this.listener = listener;
         this.channels = new ArrayList<>(channels);
-        scale = Math.min(getResources().getDisplayMetrics().heightPixels / 720f,
-                getResources().getDisplayMetrics().widthPixels / 960f);
+        scale = UiScale.landscape(context, 960);
         categories.add(ALL);
         categories.add(FAVORITES);
         LinkedHashSet<String> unique = new LinkedHashSet<>();
