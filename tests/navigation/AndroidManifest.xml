@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.vasthread.webviewtv.navigationtest">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
+    <application android:label="WebViewTV Navigation Test" android:theme="@android:style/Theme.Material.NoActionBar" android:debuggable="true">
+        <activity android:name=".NavigationActivity" android:exported="true" android:screenOrientation="landscape" />
+    </application>
+    <instrumentation android:name=".NavigationTest" android:targetPackage="com.vasthread.webviewtv.navigationtest" />
+</manifest>

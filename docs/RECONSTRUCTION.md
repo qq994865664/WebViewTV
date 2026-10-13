@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.0` / versionCode 8，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.1` / versionCode 9，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.1：左右列表焦点切换保持位置
+
+返回左栏时保留当前分组的原始屏幕位置，进入右栏时保留频道选中项和滚动位置。分组高亮和收藏计数改为更新可见行，避免整表刷新。触摸模式恢复和下一帧定位使用请求序号，新的按键、触摸、筛选或关闭操作会取消过期恢复。实际更换分组仍更新频道列表，重新打开菜单仍定位正在播放的频道。MuMu Android15 上的独立仪器测试通过 56 项位置和筛选断言，正式 APK 覆盖安装后完成真实频道左右切换验证，详见 [release-041.md](release-041.md)。
 
 ### 0.1.1：修复持续提示 JS 注入失败
 

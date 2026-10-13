@@ -1,14 +1,16 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.0**（versionCode 8），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.1**（versionCode 9），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.0-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.1-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，右上角进入设置；系统返回键先关闭面板，再显示退出确认。
 
 Release 使用正式私有密钥签名、关闭应用调试，带有旧本机开发签名的升级记录，可从本项目此前安装覆盖升级并保留配置。下载页同时提供 SHA-256 校验文件。构建与验证细节见 [发布说明](docs/release-040.md)。
+
+0.4.1 修复遥控器从右侧频道返回左侧分组时的列表跳位：切换区域保留两栏选中项与滚动位置，更新分组高亮时只刷新可见行。复现和回归记录见 [0.4.1 修复说明](docs/release-041.md)。
 
 - 深色双栏频道菜单，支持分组、收藏、遥控焦点、数字选台与备用来源。
 - 采用已确认的 D 款圆润 TV 图标，统一桌面图标、电视启动横幅与菜单标识。

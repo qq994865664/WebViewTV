@@ -265,7 +265,7 @@ public final class TvMenuView extends FrameLayout {
         if (favoritesChanged) {
             favoriteCount = 0;
             for (JSONObject channel : channels) if (favorites.contains(channel.optString("name"))) favoriteCount++;
-            categoryAdapter.notifyDataSetChanged();
+            rebindCategories();
             if (FAVORITES.equals(selectedCategory)) filterChannels(true);
         }
         if (currentIndex >= 0) {
@@ -314,7 +314,7 @@ public final class TvMenuView extends FrameLayout {
             selectedCategory = ALL;
             filterChannels(false);
             categoryList.setSelection(0);
-            categoryAdapter.notifyDataSetChanged();
+            rebindCategories();
         }
         focusChannels();
         final int position = visibleChannels.indexOf(currentIndex);
@@ -370,10 +370,12 @@ public final class TvMenuView extends FrameLayout {
         if (selectedCategory.equals(category)) return;
         selectedCategory = category;
         filterChannels(false);
-        categoryAdapter.notifyDataSetChanged();
+        rebindCategories();
     }
 
     private void filterChannels(boolean preservePosition) {
+        focusRequest++;
+        positioningCategories = false;
         int previous = channelList.getSelectedItemPosition();
         visibleChannels.clear();
         for (int i = 0; i < channels.size(); i++) {
@@ -394,26 +396,52 @@ public final class TvMenuView extends FrameLayout {
     }
 
     private void focusChannels() {
-        if (visibleChannels.isEmpty()) { tools[0].requestFocus(); return; }
-        channelList.requestFocusFromTouch();
-        if (channelList.getSelectedItemPosition() < 0) {
-            channelList.setSelection(Math.max(0, visibleChannels.indexOf(currentIndex)));
+        if (visibleChannels.isEmpty()) {
+            focusRequest++;
+            positioningCategories = false;
+            tools[0].requestFocus();
+            return;
         }
-        post(() -> paintFocus(channelList));
+        int position = channelList.getSelectedItemPosition();
+        if (position < 0) position = Math.max(0, visibleChannels.indexOf(currentIndex));
+        focusListPreservingPosition(channelList, position);
     }
 
     private void focusCategories() {
-        final int position = Math.max(0, categories.indexOf(selectedCategory));
+        focusListPreservingPosition(categoryList, Math.max(0, categories.indexOf(selectedCategory)));
+    }
+
+    private void focusListPreservingPosition(ListView list, int position) {
+        View selectedRow = list.getChildAt(position - list.getFirstVisiblePosition());
+        final Integer top = selectedRow == null ? null : selectedRow.getTop();
         final int request = ++focusRequest;
-        positioningCategories = true;
-        categoryList.requestFocusFromTouch();
-        categoryList.setSelectionFromTop(position, px(104));
+        positioningCategories = list == categoryList;
+        // Leaving touch mode may resurrect another row. Keyboard navigation should keep
+        // the existing selection and viewport, not recenter the row on every transfer.
+        if (list.isInTouchMode()) list.requestFocusFromTouch(); else list.requestFocus();
+        restoreListPosition(list, position, top);
         postOnAnimation(() -> {
             if (request != focusRequest) return;
-            if (opened && categoryList.hasFocus()) categoryList.setSelectionFromTop(position, px(104));
+            if (opened && list.hasFocus()) restoreListPosition(list, position, top);
             positioningCategories = false;
-            paintFocus(categoryList);
+            paintFocus(list);
         });
+    }
+
+    private void restoreListPosition(ListView list, int position, Integer top) {
+        View row = list.getChildAt(position - list.getFirstVisiblePosition());
+        if (list.getSelectedItemPosition() == position
+                && (top == null || (row != null && row.getTop() == top))) return;
+        if (top == null) list.setSelection(position);
+        else list.setSelectionFromTop(position, top - list.getPaddingTop());
+    }
+
+    private void rebindCategories() {
+        for (int i = 0; i < categoryList.getChildCount(); i++) {
+            View row = categoryList.getChildAt(i);
+            int position = categoryList.getFirstVisiblePosition() + i;
+            if (row instanceof GuideRow && position < categories.size()) categoryAdapter.bind((GuideRow)row, position);
+        }
     }
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
@@ -604,8 +632,13 @@ public final class TvMenuView extends FrameLayout {
         @Override public int getCount() { return categories.size(); }
         @Override public String getItem(int position) { return categories.get(position); }
         @Override public long getItemId(int position) { return position; }
+        @Override public boolean hasStableIds() { return true; }
         @Override public View getView(int position, View recycled, ViewGroup parent) {
             GuideRow row = recycled instanceof GuideRow ? (GuideRow)recycled : new GuideRow(true);
+            bind(row, position);
+            return row;
+        }
+        void bind(GuideRow row, int position) {
             String category = getItem(position);
             int count = ALL.equals(category) ? channels.size() : FAVORITES.equals(category) ? favoriteCount
                     : categoryCounts.containsKey(category) ? categoryCounts.get(category) : 0;
@@ -613,7 +646,6 @@ public final class TvMenuView extends FrameLayout {
             row.badge.setText(String.valueOf(count));
             row.bindState(selectedCategory.equals(category),
                     categoryList.hasFocus() && categoryList.getSelectedItemPosition() == position);
-            return row;
         }
     }
 
