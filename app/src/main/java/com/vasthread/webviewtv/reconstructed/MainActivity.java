@@ -284,6 +284,7 @@ public class MainActivity extends Activity {
             public void onChannelSwipe(int step) { swipePlayback(false, step); }
             public void onSourceSwipe(int step) { swipePlayback(true, step); }
             public void onChannelDrag(float distance, boolean ready) {
+                channelSwipeAnimation.completeTurn();
                 if (!canSwipePlayback() || channels.isEmpty()) return;
                 int next = Math.floorMod(channelIndex + (distance < 0 ? 1 : -1), channels.size());
                 channelSwipeAnimation.drag(distance, ready, channels.get(next).optString("name"));
@@ -457,7 +458,8 @@ public class MainActivity extends Activity {
     private void checkSourceTimeout() {
         if (destroyed || playbackPaused || sourceTimeoutSeconds == 0) return;
         long now = SystemClock.elapsedRealtime();
-        if (!hasWindowFocus() || menu == null || menu.isOpen() || settingsView.isOpen() || epgView.isOpen()) {
+        if (!hasWindowFocus() || menu == null || menu.isOpen() || settingsView.isOpen() || epgView.isOpen()
+                || channelSwipeAnimation.isTurning()) {
             sourceFailover.defer(now);
         } else {
             int next = sourceFailover.next(now);
@@ -482,7 +484,7 @@ public class MainActivity extends Activity {
                 channelIndex + 1, channels.get(channelIndex).optString("name"), sourceIndex + 1, sourceCount);
         status.setText(name + " · " + message);
         progress.setVisibility(loading ? View.VISIBLE : View.GONE);
-        hud.setVisibility(isInPictureInPictureMode() ? View.GONE : View.VISIBLE);
+        hud.setVisibility(isInPictureInPictureMode() || (menu != null && menu.isOpen()) ? View.GONE : View.VISIBLE);
         if (duration > 0) handler.postDelayed(hideHud, duration);
     }
 
@@ -496,8 +498,7 @@ public class MainActivity extends Activity {
             if (sourceCount <= 1) showHud("当前频道仅有一个直播源", false, 1800);
             else switchSource(step);
         } else {
-            playInternal(channelIndex + step, -999);
-            channelSwipeAnimation.finish();
+            channelSwipeAnimation.finish(() -> playInternal(channelIndex + step, -999));
         }
     }
 
@@ -554,7 +555,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu(boolean show) {
-        if (show) { resetPlaybackSwipe(); syncMenu(); menu.open(); menu.bringToFront(); }
+        if (show) { resetPlaybackSwipe(); syncMenu(); hud.setVisibility(View.GONE); menu.open(); menu.bringToFront(); }
         else { menu.close(); playerControls.requestFocus(); immersive(); }
     }
 

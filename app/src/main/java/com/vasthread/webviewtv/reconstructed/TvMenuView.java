@@ -38,7 +38,7 @@ public final class TvMenuView extends FrameLayout {
         void onClose();
     }
     private static final int INK = 0xFFF4F7FF, MUTED = 0xFF9CAEC8, ACCENT = 0xFF78B9FF;
-    private static final String ALL = "全部频道", FAVORITES = "收藏";
+    private static final String FAVORITES = "收藏";
     private final float scale;
     private final Listener listener;
     private final List<JSONObject> channels;
@@ -46,7 +46,7 @@ public final class TvMenuView extends FrameLayout {
     private final Map<String,Integer> categoryCounts = new HashMap<>();
     private final ArrayList<Integer> visibleChannels = new ArrayList<>();
     private Set<String> favorites = new HashSet<>();
-    private final LinearLayout panel;
+    private final LinearLayout panel, informationCard;
     private final ListView categoryList, channelList;
     private final CategoryAdapter categoryAdapter;
     private final ChannelAdapter channelAdapter;
@@ -55,7 +55,7 @@ public final class TvMenuView extends FrameLayout {
     private final LinearLayout programmeInfo;
     private Function<JSONObject,String> programmeProvider;
     private final TextView[] tools = new TextView[5];
-    private String selectedCategory = ALL;
+    private String selectedCategory = FAVORITES;
     private int currentIndex = -1, currentSource, currentSourceCount, favoriteCount;
     private boolean opened, positioningCategories;
     private int focusRequest;
@@ -65,7 +65,6 @@ public final class TvMenuView extends FrameLayout {
         this.listener = listener;
         this.channels = new ArrayList<>(channels);
         scale = UiScale.landscape(context, 960);
-        categories.add(ALL);
         categories.add(FAVORITES);
         LinkedHashSet<String> unique = new LinkedHashSet<>();
         for (JSONObject channel : channels) {
@@ -74,7 +73,8 @@ public final class TvMenuView extends FrameLayout {
             categoryCounts.put(group, categoryCounts.containsKey(group) ? categoryCounts.get(group) + 1 : 1);
         }
         categories.addAll(unique);
-        setBackgroundColor(0x72040A14);
+        if (!unique.isEmpty()) selectedCategory = unique.iterator().next();
+        setBackgroundColor(0x20040A14);
         setClickable(true);
         setFocusable(false);
         setOnClickListener(v -> requestClose());
@@ -82,11 +82,11 @@ public final class TvMenuView extends FrameLayout {
 
         panel = vertical();
         panel.setPadding(px(12), 0, px(12), 0);
-        panel.setBackground(shape(0xF5182438, 22, 0xFF35435C, 1));
+        panel.setBackground(shape(0xCC142238, 22, 0x665F7898, 1));
         panel.setElevation(px(12));
         panel.setClickable(true);
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(px(620), MATCH_PARENT, Gravity.LEFT);
-        panelParams.setMargins(px(24), px(24), 0, px(24));
+        panelParams.setMargins(px(24), px(24), 0, px(148));
         addView(panel, panelParams);
 
         LinearLayout header = horizontal();
@@ -122,7 +122,7 @@ public final class TvMenuView extends FrameLayout {
         LinearLayout section = horizontal();
         section.setPadding(px(10), 0, px(10), 0);
         section.addView(text("频道分组", 13, MUTED), new LinearLayout.LayoutParams(px(160), MATCH_PARENT));
-        sectionLabel = text(ALL + " · " + channels.size(), 13, MUTED);
+        sectionLabel = text(selectedCategory, 13, MUTED);
         sectionLabel.setPadding(px(12), 0, 0, 0);
         section.addView(sectionLabel, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
         panel.addView(section, new LinearLayout.LayoutParams(MATCH_PARENT, px(34)));
@@ -156,6 +156,14 @@ public final class TvMenuView extends FrameLayout {
         panel.addView(lists, new LinearLayout.LayoutParams(MATCH_PARENT, 0, 1));
         addDivider(panel);
 
+        informationCard = vertical();
+        informationCard.setPadding(px(14), px(8), px(14), px(10));
+        informationCard.setBackground(shape(0xCC142238, 20, 0x665F7898, 1));
+        informationCard.setElevation(px(12));
+        informationCard.setClickable(true);
+        FrameLayout.LayoutParams informationParams = new FrameLayout.LayoutParams(px(760), px(108), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        informationParams.bottomMargin = px(24);
+        addView(informationCard, informationParams);
         LinearLayout nowPlaying = horizontal();
         nowPlaying.setPadding(px(12), 0, px(12), 0);
         LinearLayout currentInfo = vertical();
@@ -168,7 +176,7 @@ public final class TvMenuView extends FrameLayout {
         playingSource = text("", 14, MUTED);
         playingSource.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         nowPlaying.addView(playingSource, new LinearLayout.LayoutParams(px(88), MATCH_PARENT));
-        panel.addView(nowPlaying, new LinearLayout.LayoutParams(MATCH_PARENT, px(54)));
+        informationCard.addView(nowPlaying, new LinearLayout.LayoutParams(MATCH_PARENT, px(50)));
         programmeInfo = vertical();
         programmeInfo.setPadding(px(12), 0, px(12), px(4));
         nowProgramme = text("", 13, 0xFFC7DCF3);
@@ -176,7 +184,7 @@ public final class TvMenuView extends FrameLayout {
         programmeInfo.addView(nowProgramme, new LinearLayout.LayoutParams(MATCH_PARENT, px(18)));
         programmeInfo.addView(nextProgramme, new LinearLayout.LayoutParams(MATCH_PARENT, px(18)));
         programmeInfo.setVisibility(GONE);
-        panel.addView(programmeInfo, new LinearLayout.LayoutParams(MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        informationCard.addView(programmeInfo, new LinearLayout.LayoutParams(MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout toolBar = horizontal();
         toolBar.setPadding(px(6), 0, px(6), 0);
@@ -308,12 +316,12 @@ public final class TvMenuView extends FrameLayout {
         }
     }
 
-    /** Preserve a chosen group containing the playing channel; otherwise show all channels. */
+    /** Preserve a group containing the playing channel; otherwise select its own group. */
     public void focusCurrentChannel() {
         if (currentIndex >= 0 && !visibleChannels.contains(currentIndex)) {
-            selectedCategory = ALL;
+            selectedCategory = groupOf(channels.get(currentIndex));
             filterChannels(false);
-            categoryList.setSelection(0);
+            categoryList.setSelection(categories.indexOf(selectedCategory));
             rebindCategories();
         }
         focusChannels();
@@ -380,9 +388,8 @@ public final class TvMenuView extends FrameLayout {
         visibleChannels.clear();
         for (int i = 0; i < channels.size(); i++) {
             JSONObject channel = channels.get(i);
-            if (ALL.equals(selectedCategory)
-                    || (FAVORITES.equals(selectedCategory) && favorites.contains(channel.optString("name")))
-                    || selectedCategory.equals(groupOf(channel))) visibleChannels.add(i);
+            if (FAVORITES.equals(selectedCategory) ? favorites.contains(channel.optString("name"))
+                    : selectedCategory.equals(groupOf(channel))) visibleChannels.add(i);
         }
         sectionLabel.setText(selectedCategory + " · " + visibleChannels.size());
         emptyLabel.setText(FAVORITES.equals(selectedCategory)
@@ -640,7 +647,7 @@ public final class TvMenuView extends FrameLayout {
         }
         void bind(GuideRow row, int position) {
             String category = getItem(position);
-            int count = ALL.equals(category) ? channels.size() : FAVORITES.equals(category) ? favoriteCount
+            int count = FAVORITES.equals(category) ? favoriteCount
                     : categoryCounts.containsKey(category) ? categoryCounts.get(category) : 0;
             row.name.setText(category);
             row.badge.setText(String.valueOf(count));

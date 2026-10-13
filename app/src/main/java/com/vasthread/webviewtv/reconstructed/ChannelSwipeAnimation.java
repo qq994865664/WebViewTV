@@ -12,13 +12,15 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** Lightweight native feedback; never captures video frames or delays a playback request. */
+/** Full-height vertical paging, with one WebView and no video-frame copies. */
 public final class ChannelSwipeAnimation extends FrameLayout {
     private final View playback;
     private final LinearLayout card;
     private final TextView direction, name, hint;
     private final float scale;
     private ValueAnimator animator;
+    private Runnable pendingSwitch;
+    private boolean turning;
 
     public ChannelSwipeAnimation(Context context, View playback) {
         super(context);
@@ -27,13 +29,13 @@ public final class ChannelSwipeAnimation extends FrameLayout {
         setClickable(false);
         setFocusable(false);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
-        setBackgroundColor(0x38040A14);
+        setClipChildren(true);
         card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setGravity(Gravity.CENTER);
         card.setPadding(px(24), px(18), px(24), px(18));
         GradientDrawable background = new GradientDrawable();
-        background.setColor(0xF2182438);
+        background.setColor(0xCC182438);
         background.setCornerRadius(px(22));
         background.setStroke(px(1), 0xFF456A91);
         card.setBackground(background);
@@ -51,45 +53,91 @@ public final class ChannelSwipeAnimation extends FrameLayout {
     }
 
     public void drag(float distance, boolean ready, String channelName) {
-        stopAnimator();
+        completeTurn();
         if (!ValueAnimator.areAnimatorsEnabled()) { reset(); return; }
-        float limit = Math.min(px(90), playback.getHeight() * .16f);
-        float offset = Math.max(-limit, Math.min(limit, distance * .28f));
+        float height = playback.getHeight();
+        float offset = Math.max(-height, Math.min(height, distance));
         playback.setTranslationY(offset);
-        card.setTranslationY(offset * .45f);
+        // The next page follows immediately behind the outgoing playback page.
+        card.setTranslationY(offset + (distance < 0 ? height : -height));
         setLabel(direction, distance < 0 ? "↑  下一个频道" : "↓  上一个频道");
         setLabel(name, channelName);
         setLabel(hint, ready ? "松开切换频道" : "继续滑动切换频道");
-        setAlpha(Math.min(1f, Math.abs(distance) / px(100)));
+        setAlpha(1);
         setVisibility(VISIBLE);
     }
 
-    public void finish() {
+    public void finish(Runnable switchChannel) {
+        stopAnimator();
+        if (!ValueAnimator.areAnimatorsEnabled() || getVisibility() != VISIBLE) {
+            reset(); switchChannel.run(); return;
+        }
+        pendingSwitch = switchChannel;
+        turning = true;
         hint.setText("正在切换频道");
-        settle(260);
+        final float height = playback.getHeight();
+        final float start = playback.getTranslationY();
+        final float end = start < 0 ? -height : height;
+        animatePage(240, fraction -> {
+            float offset = start + (end - start) * fraction;
+            playback.setTranslationY(offset);
+            card.setTranslationY(offset - end);
+        }, () -> {
+            Runnable action = pendingSwitch;
+            pendingSwitch = null;
+            if (action != null) action.run();
+            // Enter from the opposite edge, continuing the same page direction.
+            playback.setTranslationY(-end);
+            animatePage(240, fraction -> {
+                playback.setTranslationY(-end * (1 - fraction));
+                card.setTranslationY(end * fraction);
+                setAlpha(1 - fraction);
+            }, this::reset);
+        });
     }
 
-    public void cancelDrag() { settle(180); }
+    public boolean isTurning() { return turning; }
 
-    private void settle(long duration) {
+    /** Finish a committed request before a rapid subsequent swipe, once only. */
+    public void completeTurn() {
+        Runnable action = pendingSwitch;
+        pendingSwitch = null;
+        reset();
+        if (action != null) action.run();
+    }
+
+    public void cancelDrag() { if (!turning) settle(180); }
+
+    private interface Frame { void update(float fraction); }
+
+    private void animatePage(long duration, Frame frame, Runnable end) {
         stopAnimator();
-        if (!ValueAnimator.areAnimatorsEnabled() || getVisibility() != VISIBLE) { reset(); return; }
-        final float offset = playback.getTranslationY(), opacity = getAlpha();
         animator = ValueAnimator.ofFloat(0, 1);
         animator.setDuration(duration);
         animator.setInterpolator(new DecelerateInterpolator(1.5f));
         animator.addUpdateListener(value -> {
             float fraction = (float)value.getAnimatedValue();
-            playback.setTranslationY(offset * (1 - fraction));
-            card.setTranslationY(offset * .45f * (1 - fraction));
-            setAlpha(opacity * (1 - fraction));
-            if (fraction >= 1) setVisibility(INVISIBLE);
+            frame.update(fraction);
+            if (fraction >= 1) end.run();
         });
         animator.start();
     }
 
+    private void settle(long duration) {
+        stopAnimator();
+        if (!ValueAnimator.areAnimatorsEnabled() || getVisibility() != VISIBLE) { reset(); return; }
+        final float offset = playback.getTranslationY(), cardOffset = card.getTranslationY(), opacity = getAlpha();
+        animatePage(duration, fraction -> {
+            playback.setTranslationY(offset * (1 - fraction));
+            card.setTranslationY(cardOffset + offset * -fraction);
+            setAlpha(opacity * (1 - fraction));
+        }, this::reset);
+    }
+
     public void reset() {
         stopAnimator();
+        pendingSwitch = null;
+        turning = false;
         playback.setTranslationY(0);
         card.setTranslationY(0);
         setAlpha(0);

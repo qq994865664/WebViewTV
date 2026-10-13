@@ -33,6 +33,16 @@ public final class NavigationTest extends Instrumentation {
                     @Override public void onChanged() { changes++; }
                 });
             });
+            for (int i = 0; i < categories.getCount(); i++) {
+                if ("全部频道".equals(categories.getAdapter().getItem(i))) throw new AssertionError("All group remains");
+            }
+            checks++;
+            same("only current group channels", new int[]{30}, new int[]{channels.getCount()});
+            View panel = (View)field("panel"), information = (View)field("informationCard");
+            if (information.getParent() != activity.menu || information.getTop() < panel.getBottom()
+                    || Math.abs((information.getLeft()+information.getRight())/2 - activity.menu.getWidth()/2)>1)
+                throw new AssertionError("Information must float centered below menu without overlap");
+            checks++;
             key(KeyEvent.KEYCODE_DPAD_LEFT);
             // Scroll well beyond the first page by normal remote input.
             for (int i = 0; i < 22; i++) key(KeyEvent.KEYCODE_DPAD_DOWN);
@@ -40,10 +50,10 @@ public final class NavigationTest extends Instrumentation {
             // Return at bottom/top boundaries must also keep pixel offsets.
             runOnMainSync(() -> categories.setSelection(categories.getCount() - 1));
             settle(); roundTrip("last group", false);
-            runOnMainSync(() -> categories.setSelection(0));
+            runOnMainSync(() -> categories.setSelection(1));
             settle(); roundTrip("first group", false);
             // Empty Favorites transfers to the toolbar, then back to the same group.
-            key(KeyEvent.KEYCODE_DPAD_DOWN);
+            key(KeyEvent.KEYCODE_DPAD_UP);
             int[] emptyBefore = snapshot(categories);
             key(KeyEvent.KEYCODE_DPAD_RIGHT); key(KeyEvent.KEYCODE_DPAD_LEFT);
             same("empty favorites", emptyBefore, snapshot(categories));
@@ -75,6 +85,13 @@ public final class NavigationTest extends Instrumentation {
             if (!expected.equals(field("selectedCategory"))) throw new AssertionError("Group did not follow Down");
             key(KeyEvent.KEYCODE_DPAD_UP);
             same("up after return", new int[]{previous}, new int[]{snapshot(categories)[0]});
+            runOnMainSync(() -> {
+                activity.menu.setCurrentChannel(35, 0, 1, java.util.Collections.emptySet());
+                activity.menu.focusCurrentChannel();
+            });
+            settle();
+            if (!"Group 1".equals(field("selectedCategory"))) throw new AssertionError("Playing group not selected");
+            same("playing channel inside its group", new int[]{5}, new int[]{channels.getSelectedItemPosition()});
             int gestureChecks = new GestureChecks(this, activity).run();
             result.putString("stream", "\nPASS " + checks + " navigation assertions\nPASS " + gestureChecks + " gesture assertions\n");
             finish(Activity.RESULT_OK, result);

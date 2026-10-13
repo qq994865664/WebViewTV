@@ -25,6 +25,9 @@ final class GestureChecks {
     private float cx, cy, distance;
     private long time;
     private int checks;
+    private int committed;
+    private float outgoingUp, incomingUp, incomingDown;
+    private int sampling;
 
     GestureChecks(Instrumentation instrumentation, Activity activity) {
         this.instrumentation = instrumentation;
@@ -39,7 +42,7 @@ final class GestureChecks {
             animation = new ChannelSwipeAnimation(activity, playback);
             root.addView(animation, new FrameLayout.LayoutParams(-1, -1));
             controls = new PlayerControlsView(activity, new PlayerControlsView.Listener() {
-                public void onChannelSwipe(int step) { actions.add("channel:" + step); animation.finish(); }
+                public void onChannelSwipe(int step) { actions.add("channel:" + step); animation.finish(() -> committed++); }
                 public void onSourceSwipe(int step) { actions.add("source:" + step); }
                 public void onChannelDrag(float distance, boolean ready) { animation.drag(distance, ready, "Test channel"); }
                 public void onChannelDragCancelled() { animation.cancelDrag(); }
@@ -89,14 +92,29 @@ final class GestureChecks {
         });
         if (failure[0] != null) throw new AssertionError("Gesture regression", failure[0]);
         checkOnMain(() -> {
+            animation.reset(); committed = 0;
+            root.getViewTreeObserver().addOnPreDrawListener(() -> {
+                float y = playback.getTranslationY();
+                if (sampling == 1 && committed == 0) outgoingUp = Math.min(outgoingUp, y);
+                if (sampling == 1 && committed == 1) incomingUp = Math.max(incomingUp, y);
+                if (sampling == 2 && committed == 3) incomingDown = Math.min(incomingDown, y);
+                return true;
+            });
+            sampling = 1;
             down(); move(0, -distance, 100);
-            verify("up follows finger", playback.getTranslationY()<0 && animation.getVisibility()==View.VISIBLE && animation.getAlpha()>0);
+            verify("page follows full finger distance", Math.abs(playback.getTranslationY()+distance)<1 && animation.getVisibility()==View.VISIBLE);
             expect("preview must not switch");
             up(0, -distance, 250);
-            expect("switch starts without waiting for animation", "channel:1");
+            expect("one committed gesture", "channel:1");
+            verify("old page stays until exit", committed == 0);
         });
-        SystemClock.sleep(400); instrumentation.waitForIdleSync();
-        checkOnMain(() -> verifyRest("committed animation completes"));
+        waitForPage();
+        checkOnMain(() -> {
+            verify("outgoing page continues upward", outgoingUp < -distance);
+            verify("next page enters from below once", committed == 1 && incomingUp > 0);
+            verifyRest("committed page completes");
+            sampling = 0;
+        });
         checkOnMain(() -> {
             down(); move(0, distance*.4f, 100);
             verify("short drag follows finger", playback.getTranslationY()>0);
@@ -109,6 +127,7 @@ final class GestureChecks {
             down(); move(0, distance, 100);
             verify("new drag replaces old animation", playback.getTranslationY()>0);
             up(0, distance, 250); expect("second rapid swipe", "channel:-1");
+            verify("rapid drag completes preceding request once", committed == 2);
             controls.cancelGesture(); animation.reset();
             verifyRest("panel reset removes animation");
             down(); move(0, -distance, 100);
@@ -117,8 +136,24 @@ final class GestureChecks {
             expect("interrupted drag does not change channel");
         });
         SystemClock.sleep(350); instrumentation.waitForIdleSync();
-        checkOnMain(() -> verifyRest("cancelled animator cannot move playback later"));
+        checkOnMain(() -> {
+            verifyRest("cancelled animator cannot move playback later");
+            verify("cancelled pending page cannot change channel later", committed == 2);
+            sampling = 2;
+            swipe(0, distance, 250); expect("downward page", "channel:-1");
+        });
+        waitForPage();
+        checkOnMain(() -> {
+            verify("previous page enters from above", committed == 3 && incomingDown < 0);
+            verifyRest("downward page completes");
+        });
         return checks;
+    }
+
+    private void waitForPage() {
+        float durationScale = android.provider.Settings.Global.getFloat(activity.getContentResolver(), "animator_duration_scale", 1);
+        SystemClock.sleep((long)(600 * Math.max(1, durationScale)) + 100);
+        instrumentation.waitForIdleSync();
     }
 
     private void checkOnMain(Runnable check) {
