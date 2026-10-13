@@ -40,6 +40,8 @@ EPG 使用用户指定的 [FreeEPG 中国源](https://free-epg.de/countries/cn)�
 
 默认频道源改为 `https://raw.githubusercontent.com/qq994865664/WebViewTV/main/config/tv-config.json`，默认周期 24 小时。更新只合并 `channels`，不覆盖本机 EPG、播放与缓存周期。GitHub main 分支提交后，应用下次到期或设置中手动更新时读取新列表；运行期间每分钟检查，关闭期间不唤醒设备。
 
+默认 raw 地址读取失败时，自动尝试同一仓库的官方 Contents API：`https://api.github.com/repos/qq994865664/WebViewTV/contents/config/tv-config.json?ref=main`。使用 `Accept: application/vnd.github.raw+json` 直接读取文件内容，公开仓库无需 token，依据 [GitHub 官方 Contents API 文档](https://docs.github.com/en/rest/repos/contents#get-repository-content)。缓存记录成功入口，下次优先读取该入口；ETag/Last-Modified 仅发送给原成功入口，跨入口时完整重取。两个入口都失败时保留现有列表，不改用户配置中的 raw 地址。
+
 旧安装中的空源地址进行一次升级迁移，已有非空自定义地址保持。迁移后主动清空仍能停用远程更新。持续频道维护应修改仓库；本机编辑在以后远程更新时会被仓库内容覆盖。
 
 工程资产直接包含于仓库，PowerShell 构建支持 `-Sdk`、`-Jdk` 及 `ANDROID_HOME`、`JAVA_HOME`。配置提交前可运行根目录 `scripts/validate-config.py`；所有字段与手工维护方式见 [配置说明](../config/CONFIG.md)。

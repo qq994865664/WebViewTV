@@ -17,6 +17,7 @@ import java.util.zip.GZIPInputStream;
 /** Editable local settings plus a separately timed remote channel-list cache. */
 public final class ConfigRepository {
     public static final String DEFAULT_CHANNEL_URL = "https://raw.githubusercontent.com/qq994865664/WebViewTV/main/config/tv-config.json";
+    private static final String GITHUB_CONTENTS_URL = "https://api.github.com/repos/qq994865664/WebViewTV/contents/config/tv-config.json?ref=main";
     public static final String DEFAULT_EPG_URL = "https://free-epg.de/api/epg/cn.xml.gz";
     public static final int[] UPDATE_HOURS = {2, 6, 24, 72, 120, 240, 720};
     private static final int MAX_BYTES = 8 * 1024 * 1024;
@@ -51,7 +52,7 @@ public final class ConfigRepository {
         ChannelData(JSONArray channels, String warning) { this.channels = channels; this.warning = warning; }
     }
     private static final class Download {
-        String body, etag = "", lastModified = "";
+        String body, etag = "", lastModified = "", downloadUrl = "";
         boolean notModified;
     }
 
@@ -167,7 +168,7 @@ public final class ConfigRepository {
 
     /** Call from a worker. The network request does not hold this repository's monitor. */
     public RefreshResult refresh(boolean force) {
-        final String url, etag, modified, cacheText;
+        final String url, etag, modified, cacheText, preferredEndpoint;
         final long generation;
         synchronized (this) {
             requireLoaded();
@@ -179,9 +180,10 @@ public final class ConfigRepository {
             boolean cacheValid = cacheText != null;
             etag = cacheValid ? metadata.optString("etag", "") : "";
             modified = cacheValid ? metadata.optString("lastModified", "") : "";
+            preferredEndpoint = metadata.optString("url", "").equals(url) ? metadata.optString("downloadUrl", url) : url;
         }
         try {
-            Download download = download(url, etag, modified);
+            Download download = download(url, etag, modified, preferredEndpoint);
             ChannelData data = null;
             if (download.notModified) {
                 if (cacheText == null) throw new IOException("服务器返回 304，但没有有效的频道缓存");
@@ -208,6 +210,7 @@ public final class ConfigRepository {
                 String nextCacheText = cached.toString();
                 JSONObject nextMetadata = new JSONObject();
                 put(nextMetadata, "url", url); put(nextMetadata, "fetchedAt", now);
+                put(nextMetadata, "downloadUrl", download.downloadUrl);
                 put(nextMetadata, "etag", download.notModified && download.etag.isEmpty() ? etag : download.etag);
                 put(nextMetadata, "lastModified", download.notModified && download.lastModified.isEmpty() ? modified : download.lastModified);
                 put(nextMetadata, "sha256", digest(nextCacheText.getBytes(StandardCharsets.UTF_8)));
@@ -431,14 +434,36 @@ public final class ConfigRepository {
             return value.toString();
         } catch (Exception e) { throw new IllegalStateException(e); }
     }
-    private static Download download(String original, String etag, String modified) throws IOException {
+    /** Only the bundled public repository has an alternate official GitHub endpoint. */
+    private static Download download(String original, String etag, String modified, String preferredEndpoint) throws IOException {
+        if (!DEFAULT_CHANNEL_URL.equals(original)) return downloadAddress(original, etag, modified);
+        String first = GITHUB_CONTENTS_URL.equals(preferredEndpoint) ? GITHUB_CONTENTS_URL : original;
+        String second = GITHUB_CONTENTS_URL.equals(first) ? original : GITHUB_CONTENTS_URL;
+        boolean sameEndpoint = first.equals(preferredEndpoint);
+        try {
+            return downloadAddress(first, sameEndpoint ? etag : "", sameEndpoint ? modified : "");
+        } catch (IOException firstError) {
+            try {
+                // Validators belong to the successful endpoint's representation, never another host.
+                Download fallback = downloadAddress(second, "", "");
+                android.util.Log.i("WVTResearch", "Channel config retrieved through alternate official GitHub endpoint");
+                return fallback;
+            } catch (IOException secondError) {
+                secondError.addSuppressed(firstError);
+                throw secondError;
+            }
+        }
+    }
+
+    private static Download downloadAddress(String original, String etag, String modified) throws IOException {
         String address = original;
         for (int redirects = 0; redirects <= 4; redirects++) {
             checkUrl(address);
             HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
             connection.setConnectTimeout(8000); connection.setReadTimeout(12000); connection.setInstanceFollowRedirects(false);
-            connection.setRequestProperty("User-Agent", "WebViewTVResearch/0.3 (channel-config)");
-            connection.setRequestProperty("Accept", "application/json, text/plain;q=0.9, */*;q=0.5");
+            connection.setRequestProperty("User-Agent", "WebViewTVResearch/0.3.1 (channel-config)");
+            connection.setRequestProperty("Accept", GITHUB_CONTENTS_URL.equals(address)
+                    ? "application/vnd.github.raw+json" : "application/json, text/plain;q=0.9, */*;q=0.5");
             connection.setRequestProperty("Accept-Encoding", "gzip");
             if (!etag.isEmpty()) connection.setRequestProperty("If-None-Match", etag);
             if (!modified.isEmpty()) connection.setRequestProperty("If-Modified-Since", modified);
@@ -451,6 +476,7 @@ public final class ConfigRepository {
                     continue;
                 }
                 Download result = new Download();
+                result.downloadUrl = original;
                 String returnedEtag = connection.getHeaderField("ETag");
                 String returnedModified = connection.getHeaderField("Last-Modified");
                 result.etag = returnedEtag == null ? "" : returnedEtag;

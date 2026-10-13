@@ -20,6 +20,8 @@ https://raw.githubusercontent.com/qq994865664/WebViewTV/main/config/tv-config.js
 
 默认更新周期为 **24 小时**。设置中可选择 2 小时、6 小时、24 小时、3 天、5 天、10 天或 30 天。应用运行期间每分钟检查是否到期；应用关闭时，下次启动再检查。网络失败或配置无效时继续使用现有频道。GitHub 原始文件/CDN 可能有短暂缓存，提交后立即请求不一定马上取得最新内容。
 
+默认原始文件地址无法读取时，应用自动尝试同一公开仓库的官方 GitHub Contents API，无需填写 GitHub token 或修改地址，并记住上次成功的读取入口。两个入口都失败时仍保留现有频道。
+
 **远程更新只替换 `channels`**，保留本机的 EPG 地址、播放选项和更新周期。持续维护的频道应修改仓库；本机临时编辑的频道在下一次远程更新时会被仓库内容覆盖。
 
 升级到 0.3.1 时，旧安装中的空频道源地址会进行一次迁移，指向此仓库；已有非空自定义地址会保留。之后仍可在设置中清空地址并保存，改为纯本机手动维护。设置支持编辑当前频道、编辑完整 JSON，以及使用系统文件选择器导入和导出。字段说明和文件位置见 [`config/CONFIG.md`](config/CONFIG.md)，小型示例见 [`config/tv-config.example.json`](config/tv-config.example.json)。
@@ -69,6 +71,8 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Sdk 'C:\Android\Sdk' -Jdk 
 直接打开工程，使用 JDK 17 和 SDK 36，同步后构建 `app`。Gradle 插件版本为 8.9.1，首次同步需要取得插件与依赖。仓库未包含 Gradle Wrapper；命令行离线构建使用上面的 PowerShell 脚本。
 
 ## 来源与验证记录
+
+0.3.1 的实际上传、MuMu 仓库更新及配置保留验证见 [docs/github-sync-validation.md](docs/github-sync-validation.md)。
 
 这是基于用户提供的 APK 证据编写的独立研究实现，不是原作者发布版本，也不声称完整恢复原源码。原 APK 的频道数据、网站适配器及四份 JavaScript 已保留；原 JavaScript 的作者/应用署名为 **vasthread / WebView电视**。所提供 APK 未包含明确覆盖这些打包资源的授权文件；未为提取资源附加新的开源授权，原权利归属不因重建而改变。
 

@@ -201,7 +201,7 @@ public final class SettingsView extends FrameLayout {
         if (channels != null) channelStatusLabel.setText(channels);
         if (epg != null) epgStatusLabel.setText(epg);
         remoteHint.setText(channelUrl.getText().toString().trim().isEmpty()
-                ? "默认读取 GitHub 仓库配置。清空地址可使用本机列表；更改后请先保存。"
+                ? "未填写地址，使用本机频道列表，不进行远程覆盖。"
                 : "保存地址后，按缓存间隔下载远程频道配置；导入或手动编辑后可清空地址以保留本机列表。");
     }
 
