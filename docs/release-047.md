@@ -52,3 +52,5 @@ node tests/hls-recovery.test.js
 - 版本 0.4.7 / versionCode 15，Android9+、支持 ARMv8 的通用 APK，沿用正式签名，可覆盖升级。
 - `WebViewTV-0.4.7-android9plus-universal-release.apk`，763875 字节。
 - SHA-256：`b6a56602abef5319f2595255aa095840aa93ed68c4937d8ccc0355a373d51497`。
+
+另提供 `WebViewTV-0.4.7-android9plus-armeabi-v7a-release.apk`，便于 Android9 ARMv7 32 位电视盒子用户选择。该文件与通用 APK 字节相同、签名相同，均不含 `lib/` 或 `.so` 文件，未限制原生 ABI；最低 API 28，包含电视桌面入口且不强制触摸屏。单独校验文件为 `ARMv7-SHA256SUMS.txt`。这是 ARMv7 兼容下载名称，未生成或宣称存在独立的 ARMv7 原生二进制；尚未在 Android9 ARMv7 实机验证。
