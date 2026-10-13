@@ -3,7 +3,7 @@ param(
     [string]$Jdk='D:\FangteToolchains\jdk17\jdk-17.0.20.1+1',
     [string]$Adb='C:\Program Files\Netease\MuMu\nx_device\15.0\shell\adb.exe',
     [string]$Serial='emulator-5554',
-    [ValidateSet('Navigation','Fallback','Information')][string]$Suite='Navigation'
+    [ValidateSet('Navigation','Fallback','Information','Playback')][string]$Suite='Navigation'
 )
 $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot -Parent
@@ -18,8 +18,8 @@ Run "$bt\aapt2.exe" @('link','-o',"$testBuild\unsigned.apk",'-I',$android,'--man
 $sources=@(Get-ChildItem "$repo\app\src\main\java" -Recurse -Filter '*.java' | ForEach-Object FullName)+@(Get-ChildItem "$repo\tests\navigation" -Filter '*.java' | ForEach-Object FullName)
 Run "$Jdk\bin\jar.exe" @('uf',"$testBuild\unsigned.apk",'-C',"$repo\app\src\main",'assets')
 Run "$Jdk\bin\javac.exe" (@('-encoding','UTF-8','-source','8','-target','8','-classpath',$android,'-d',"$testBuild\classes")+$sources)
-$classes=@(Get-ChildItem "$testBuild\classes" -Recurse -Filter '*.class' | ForEach-Object FullName)
-Run "$bt\d8.bat" (@('--lib',$android,'--min-api','28','--output',"$testBuild\dex")+$classes)
+Run "$Jdk\bin\jar.exe" @('cf',"$testBuild\classes.jar",'-C',"$testBuild\classes",'.')
+Run "$bt\d8.bat" @('--lib',$android,'--min-api','28','--output',"$testBuild\dex","$testBuild\classes.jar")
 Run "$Jdk\bin\jar.exe" @('uf',"$testBuild\unsigned.apk",'-C',"$testBuild\dex",'classes.dex')
 Run "$bt\zipalign.exe" @('-f','4',"$testBuild\unsigned.apk","$testBuild\aligned.apk")
 Run "$bt\apksigner.bat" @('sign','--ks',"$repo\build\debug.keystore",'--ks-pass','pass:android','--out',"$testBuild\test.apk","$testBuild\aligned.apk")
@@ -28,4 +28,4 @@ $result=& $Adb -s $Serial shell am instrument -w -r "com.vasthread.webviewtv.nav
 $instrumentExit=$LASTEXITCODE
 $result | Set-Content -LiteralPath (Join-Path $testBuild 'result.txt') -Encoding utf8
 $result
-if ($instrumentExit -ne 0 -or ($result -join "`n") -notmatch 'PASS \d+ (navigation|fallback|information) assertions' -or ($result -join "`n") -notmatch 'INSTRUMENTATION_CODE: -1') { throw "$Suite regression failed. Evidence: $testBuild" }
+if ($instrumentExit -ne 0 -or ($result -join "`n") -notmatch 'PASS \d+ (navigation|fallback|information|playback) assertions' -or ($result -join "`n") -notmatch 'INSTRUMENTATION_CODE: -1') { throw "$Suite regression failed. Evidence: $testBuild" }

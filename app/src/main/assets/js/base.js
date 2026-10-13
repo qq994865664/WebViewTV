@@ -30,7 +30,7 @@ function wvt_setupVideoListeners(video) {
         wvt_log("Video state: PAUSE.");
     });
     video.addEventListener('error', function (e) {
-        wvt_log("Video state: ERROR, code = " + window.wvt_video.error.code + ".");
+        wvt_log("Video state: ERROR, code = " + (video.error ? video.error.code : "player-event") + ".");
     });
     video.addEventListener('canplay', function (e) {
         wvt_log("Video state: CANPLAY.");

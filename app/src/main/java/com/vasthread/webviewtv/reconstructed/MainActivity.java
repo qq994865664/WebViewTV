@@ -51,6 +51,12 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private WebView web;
     private FrameLayout root, playbackStage, fullscreen;
+    private TextView playbackCover;
+    private boolean playbackFailed, pageCommitted, revealPending, navigationPending;
+    private String pendingNavigationUrl = "";
+    private final Runnable delayedBuffering = () -> {
+        if (!destroyed && this.buffering && !playbackFailed) showHud("缓冲中", true, 0);
+    };
     private TvMenuView menu;
     private ChannelInfoView channelInfo;
     private boolean playbackStarted;
@@ -72,7 +78,7 @@ public class MainActivity extends Activity {
     private int videoWidth = 16, videoHeight = 9;
     private final Runnable hideHud = () -> { if (hud != null) hud.setVisibility(View.GONE); };
     private final Runnable noVideoHint = () -> {
-        if (!videoReady) showHud("暂未开始播放 · 左右切源 / 菜单刷新", false, 6000);
+        if (!videoReady) showPlaybackFailure("未能开始播放 · 可左右切源或打开菜单刷新");
     };
     private final Runnable selectNumber = () -> {
         try {
@@ -218,6 +224,13 @@ public class MainActivity extends Activity {
             if (viewportFullscreen && (x != 0 || y != 0)) web.scrollTo(0, 0);
         });
         playbackStage.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        playbackCover = new TextView(this);
+        playbackCover.setBackgroundColor(Color.BLACK);
+        playbackCover.setTextColor(0xFF9CAEC8);
+        playbackCover.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(18));
+        playbackCover.setGravity(Gravity.CENTER);
+        playbackCover.setText("正在连接直播源…");
+        playbackStage.addView(playbackCover, new FrameLayout.LayoutParams(-1, -1));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -230,30 +243,43 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Bridge(), "main");
         web.setWebViewClient(new WebViewClient() {
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
+                if (navigationPending && !Objects.equals(url, pendingNavigationUrl)) return;
+                navigationPending = false;
                 pageSequence++;
                 documentSequence = pageSequence;
                 viewportFullscreen = false;
                 pageInjected = false;
                 pageInjectionAttempted = false;
                 videoReady = false;
+                firstFrameReported = false;
+                pageCommitted = false;
+                revealPending = false;
+                playbackCover.setVisibility(View.VISIBLE);
                 android.util.Log.d(TAG, "page started " + url);
             }
             @Override public void onPageFinished(WebView view, String url) {
                 android.util.Log.d(TAG, "page finished " + url);
-                if (!videoReady) showHud("正在准备播放器", true, 0);
                 inject();
             }
-            @Override public void onPageCommitVisible(WebView view, String url) { if (fastSwitch) inject(); }
+            @Override public void onPageCommitVisible(WebView view, String url) {
+                if (navigationPending || !Objects.equals(url, web.getUrl())) return;
+                pageCommitted = true;
+                revealPlayback();
+                if (fastSwitch) inject();
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String scheme = request.getUrl().getScheme();
                 return !"http".equals(scheme) && !"https".equals(scheme);
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) {
-                    handler.removeCallbacks(noVideoHint);
-                    showHud("网页加载失败 · 左右切源 / 菜单刷新", false, 8000);
+                if (request.isForMainFrame() && Objects.equals(request.getUrl().toString(), view.getUrl())) {
+                    showPlaybackFailure("网页加载失败 · 可左右切源或打开菜单刷新");
                     android.util.Log.w(TAG, "main page error " + error.getDescription());
                 }
+            }
+            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (request.isForMainFrame() && Objects.equals(request.getUrl().toString(), view.getUrl()))
+                    showPlaybackFailure("直播页面无法访问（" + response.getStatusCode() + "）· 可左右切源");
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
@@ -269,6 +295,8 @@ public class MainActivity extends Activity {
                 fullscreen.setBackgroundColor(Color.BLACK);
                 fullscreen.addView(view, new FrameLayout.LayoutParams(-1, -1));
                 playbackStage.addView(fullscreen, new FrameLayout.LayoutParams(-1, -1));
+                playbackCover.bringToFront();
+                revealPlayback();
                 playerControls.bringToFront();
                 hud.bringToFront();
                 menu.bringToFront();
@@ -288,6 +316,8 @@ public class MainActivity extends Activity {
             public void onChannelDrag(float distance, boolean ready) {
                 channelSwipeAnimation.completeTurn();
                 if (!canSwipePlayback() || channels.isEmpty()) return;
+                channelInfo.hide();
+                hud.setVisibility(View.GONE);
                 int next = Math.floorMod(channelIndex + (distance < 0 ? 1 : -1), channels.size());
                 channelSwipeAnimation.drag(distance, ready, channels.get(next).optString("name"));
             }
@@ -405,6 +435,8 @@ public class MainActivity extends Activity {
         sourceIndex = Math.floorMod(source, sourceCount);
         JSONObject item = urls.optJSONObject(sourceIndex);
         String url = item == null ? urls.optString(sourceIndex) : item.optString("url");
+        pendingNavigationUrl = url;
+        web.stopLoading();
         extra = item == null ? "" : item.optString("extra", "");
         JSONObject adapter = defaultAdapter();
         for (int i = 0; i < adapters.length(); i++) {
@@ -457,12 +489,24 @@ public class MainActivity extends Activity {
     private void beginLoading(boolean retry) {
         videoReady = false;
         firstFrameReported = false;
+        playbackFailed = false;
+        pageCommitted = false;
+        revealPending = false;
+        navigationPending = true;
+        pageInjected = false;
+        pageInjectionAttempted = false;
+        viewportFullscreen = false;
+        playbackCover.setText("正在连接直播源…");
+        playbackCover.setVisibility(View.VISIBLE);
+        playbackCover.bringToFront();
+        handler.removeCallbacks(delayedBuffering);
         switchStarted = SystemClock.elapsedRealtime();
         playbackToken++;
         buffering = true;
         handler.removeCallbacks(noVideoHint);
         showHud("加载中", true, 0);
-        handler.postDelayed(noVideoHint, 18000);
+        // With automatic switching disabled, still leave the spinner after a finite wait.
+        if (sourceTimeoutSeconds == 0) handler.postDelayed(noVideoHint, 18000);
         sourceFailover.start(sourceCount, sourceIndex, SystemClock.elapsedRealtime(), retry);
         armSourceWatchdog();
     }
@@ -487,8 +531,7 @@ public class MainActivity extends Activity {
                 playInternal(channelIndex, next, true);
                 showHud("播放超时 · 已自动切换直播源", true, 0);
             } else if (next == SourceFailover.EXHAUSTED) {
-                handler.removeCallbacks(noVideoHint);
-                showHud(sourceCount <= 1 ? "播放超时 · 当前频道没有备用源" : "所有直播源均超时 · 可手动切源或刷新重试", false, 8000);
+                showPlaybackFailure(sourceCount <= 1 ? "播放超时 · 当前频道没有备用源" : "所有直播源均无法播放 · 可手动切源或刷新重试");
                 android.util.Log.i(TAG, "source-exhausted channel=" + (channelIndex + 1));
             }
         }
@@ -496,6 +539,7 @@ public class MainActivity extends Activity {
     }
 
     private void showHud(String message, boolean loading, long duration) {
+        if (loading && playbackFailed) return;
         handler.removeCallbacks(hideHud);
         String name = channels.isEmpty() ? "WebView 电视" : String.format(Locale.ROOT, "%03d  %s · 源 %d/%d",
                 channelIndex + 1, channels.get(channelIndex).optString("name"), sourceIndex + 1, sourceCount);
@@ -504,6 +548,46 @@ public class MainActivity extends Activity {
         hud.setVisibility(isInPictureInPictureMode() || (menu != null && menu.isOpen())
                 || (channelInfo != null && channelInfo.getVisibility() == View.VISIBLE) ? View.GONE : View.VISIBLE);
         if (duration > 0) handler.postDelayed(hideHud, duration);
+    }
+
+    private void showPlaybackFailure(String message) {
+        playbackFailed = true;
+        buffering = false;
+        handler.removeCallbacks(noVideoHint);
+        handler.removeCallbacks(delayedBuffering);
+        progress.setVisibility(View.GONE);
+        if (!videoReady) {
+            playbackCover.setText(message);
+            playbackCover.setVisibility(View.VISIBLE);
+            hud.setVisibility(View.GONE);
+        } else showHud(message, false, 0);
+    }
+
+    private void playbackProgress() {
+        playbackFailed = false;
+        videoReady = true;
+        buffering = false;
+        handler.removeCallbacks(noVideoHint);
+        handler.removeCallbacks(delayedBuffering);
+        handler.removeCallbacks(hideHud);
+        hud.setVisibility(View.GONE);
+        sourceFailover.progress(SystemClock.elapsedRealtime());
+        revealPlayback();
+    }
+
+    private void revealPlayback() {
+        if (!videoReady || !pageCommitted || (!viewportFullscreen && fullscreen == null) || revealPending
+                || playbackCover.getVisibility() != View.VISIBLE) return;
+        final long token = playbackToken;
+        final int document = documentSequence;
+        revealPending = true;
+        web.postVisualStateCallback(token, new WebView.VisualStateCallback() {
+            @Override public void onComplete(long request) {
+                if (destroyed || token != playbackToken || document != documentSequence) return;
+                revealPending = false;
+                if (videoReady && !playbackFailed && (viewportFullscreen || fullscreen != null)) playbackCover.setVisibility(View.GONE);
+            }
+        });
     }
 
     private void switchSource(int step) { play(channelIndex, sourceIndex + step); }
@@ -529,17 +613,21 @@ public class MainActivity extends Activity {
         if (playerControls != null) playerControls.cancelGesture();
         if (channelSwipeAnimation != null) channelSwipeAnimation.reset();
     }
-    private void refresh() { showMenu(false); hideFullscreen(); viewportFullscreen = false; web.scrollTo(0, 0); beginLoading(); web.reload(); }
+    private void refresh() { showMenu(false); hideFullscreen(); pendingNavigationUrl = web.getUrl(); web.stopLoading(); web.scrollTo(0, 0); beginLoading(); web.reload(); }
 
     private void inject() {
-        if (destroyed || isFinishing() || "about:blank".equals(web.getUrl())) return;
+        if (destroyed || isFinishing() || navigationPending || "about:blank".equals(web.getUrl())) return;
         if (pageInjectionAttempted) return;
         pageInjectionAttempted = true;
         final String pageUrl = web.getUrl();
         final int sequence = pageSequence;
         try {
             if (injectionScript.isEmpty()) throw new IOException("Playback scripts unavailable");
+            String siteScript = "";
+            if (pageUrl != null && "tv.hoolo.tv".equals(Uri.parse(pageUrl).getHost()))
+                siteScript = "\n" + asset("vendor/hls.light.min.js") + "\n" + asset("js/hls_recovery.js");
             String wrapped = "(function(){if(!document.documentElement||!document.body)return 'pending';try{window.__wvtPlaybackToken=" + JSONObject.quote(playbackToken + ":" + documentSequence) + ";\n" + injectionScript
+                    + siteScript
                     + "\nreturn window.wvt_javascriptInjected === true && !!window.wvt_adapter && typeof window.wvt_enterViewportFullscreen === 'function';"
                     + "}catch(error){console.error('[WVTResearch] injection: '+error);return false;}})()";
             web.evaluateJavascript(wrapped, result -> {
@@ -558,9 +646,7 @@ public class MainActivity extends Activity {
 
     private void injectionFailed(String reason, Exception error) {
         android.util.Log.e(TAG, "JS injection failed: " + reason, error);
-        handler.removeCallbacks(noVideoHint);
-        showHud("播放适配未加载 · 菜单刷新重试", false, 8000);
-        toast("播放适配加载失败，请刷新重试");
+        showPlaybackFailure("播放适配未加载 · 可左右切源或打开菜单刷新");
     }
 
     private void hideFullscreen() {
@@ -984,9 +1070,9 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void reportPlaybackReady(String token, String evidence) {
             runOnUiThread(() -> {
-                if (destroyed || !token.equals(getPlaybackToken()) || firstFrameReported || channels.isEmpty()) return;
+                if (destroyed || !Objects.equals(token, getPlaybackToken()) || firstFrameReported || channels.isEmpty()) return;
                 firstFrameReported = true;
-                sourceFailover.progress(SystemClock.elapsedRealtime());
+                playbackProgress();
                 if (rememberSource) prefs.edit().putString("source:" + channelKey(channels.get(channelIndex)),
                         urlOf(channels.get(channelIndex).optJSONArray("urls"), sourceIndex)).apply();
                 android.util.Log.i(TAG, "switch-ready channel=" + (channelIndex + 1) + " source=" + (sourceIndex + 1)
@@ -996,7 +1082,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void reportPlaybackProgress(String token) {
             runOnUiThread(() -> {
                 if (destroyed || !Objects.equals(token, getPlaybackToken())) return;
-                sourceFailover.progress(SystemClock.elapsedRealtime());
+                playbackProgress();
             });
         }
         @JavascriptInterface public String getExtra() { return extra; }
@@ -1007,15 +1093,13 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void reportVideoLoadingStateForToken(String token, boolean loading) {
             runOnUiThread(() -> {
                 if (destroyed || !Objects.equals(token, getPlaybackToken())) return;
-                if (loading == buffering && !(!loading && !videoReady)) return;
-                buffering = loading;
-                if (loading) showHud("缓冲中", true, 0);
-                else {
-                    videoReady = true;
-                    handler.removeCallbacks(noVideoHint);
-                    handler.removeCallbacks(hideHud);
-                    hud.setVisibility(View.GONE);
+                if (playbackFailed) return;
+                if (loading && !buffering) {
+                    buffering = true;
+                    handler.removeCallbacks(delayedBuffering);
+                    handler.postDelayed(delayedBuffering, 800);
                 }
+                // play/canplay events alone cannot clear loading or prove a decoded frame.
             });
         }
         @JavascriptInterface public void reportViewportFullscreen(int width, int height, int mediaWidth, int mediaHeight) { reportViewportFullscreenForToken(getPlaybackToken(), width, height, mediaWidth, mediaHeight); }
@@ -1023,6 +1107,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 if (destroyed || !Objects.equals(token, getPlaybackToken())) return;
                 viewportFullscreen = true;
+                revealPlayback();
                 web.scrollTo(0, 0);
                 web.invalidate();
                 android.util.Log.i(TAG, "viewport fullscreen=" + width + "x" + height + " video=" + mediaWidth + "x" + mediaHeight);

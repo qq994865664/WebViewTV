@@ -9,7 +9,7 @@
         if (stopped) return;
         var current = window.wvt_video;
         if (current !== video) { video = current; lastTime = null; }
-        if (video && document.documentElement.contains(video)) {
+        if (video && (window.wvt_isMediaAttached ? window.wvt_isMediaAttached(video) : document.documentElement.contains(video))) {
             var time = Number(video.currentTime);
             if (isFinite(time) && lastTime !== null && time > lastTime + 0.03 &&
                     !video.paused && !video.ended && !video.error && video.readyState >= 2 &&

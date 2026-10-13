@@ -11,7 +11,7 @@
             var value = bridge.isFastSwitchEnabled();
             enabled = value === true || value === 'true';
         }
-        if (bridge && typeof bridge.getPlaybackToken === 'function') token = String(bridge.getPlaybackToken() || '');
+        token = String(window.__wvtPlaybackToken || '');
     } catch (ignored) { /* Old builds retain playback with measurement disabled. */ }
 
     var started = Date.now();
@@ -31,7 +31,8 @@
     window.wvt_fastSwitchController = state;
 
     function attached(video) {
-        return !!video && video.tagName === 'VIDEO' && document.documentElement && document.documentElement.contains(video);
+        return !!video && video.tagName === 'VIDEO' && (window.wvt_isMediaAttached
+            ? window.wvt_isMediaAttached(video) : document.documentElement.contains(video));
     }
     function playable(video, decodedFrame) {
         return attached(video) && !video.paused && !video.ended && !video.error &&

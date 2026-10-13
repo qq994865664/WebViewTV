@@ -1,10 +1,10 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.6` / versionCode 14，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.7` / versionCode 15，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
-Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为本次研究实现。频道和网站适配器 JSON 来自所提供 APK 的 assets 解码结果，包含 795 个频道条目、984 个网页来源、37 个分组、32 个网站适配器。内置初始化与可编辑配置修正了原快照中两条海峡卫视 URL 的中文误前缀；原研究目录保留未改动的解码证据。
+Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为本次研究实现。频道和网站适配器 JSON 基于所提供 APK 的 assets 解码结果维护，包含 795 个频道条目、984 个网页来源、37 个分组，原有 32 个网站适配器现增加山西移动端规则至 33 个。内置初始化与可编辑配置修正了原快照中两条海峡卫视 URL 的中文误前缀；原研究目录保留未改动的解码证据。
 
 `app/src/main/assets/js/` 中的 `base.js`、`platform_x5.js`、`main.js`、`remove_controls.js` 保留原 APK 资源及 **vasthread / WebView电视** 署名，所提供 APK 未包含明确覆盖这些打包资源的授权文件，原权利归属不因重建而改变；没有为提取资源另加开源许可证。`tv_fullscreen.js`、`fast_switch.js` 为新增控制器。桥接依据原 APK 的频道、URL、网站适配器与 WebView 代码，当前保留 `main.getWebPageAdapter/getExtra/sendKeyEvent/setVideoSize/reportVideoLoadingState/schemeEnterFullscreen` 等接口行为。
 
@@ -19,6 +19,12 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.7：播放隔离、平滑分组与网站兼容修复
+
+换台立即遮住旧 WebView，等新文档提交、真实首帧、全屏布局及视觉状态回调就绪后显示；拖动时隐藏旧信息。分组跨屏逐帧滚动，保留左右往返位置。加载状态使用首帧和时间推进，短暂缓冲防抖，终止错误不再被 play/waiting 事件改回加载。全屏控制支持同域 iframe、已解码但高度为零的视频以及网页缩放和宽度溢出。
+
+杭州生活发生原生 HLS 错误时只恢复一次，使用网页自己的公开播放地址，注入 HLS.js light 1.7.3；第三方库与 Apache-2.0 许可保存在 `assets/vendor/`。山西三个频道优先原有官方移动端来源，桌面地址仍作备用。广东 4K 官方页面未提供播放地址的情况无法仅靠界面修复恢复，现有限等待后提示。详见 [release-047.md](release-047.md)。
 
 ### 0.4.6：换台后独立显示五秒频道信息
 

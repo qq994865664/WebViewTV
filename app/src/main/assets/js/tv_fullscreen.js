@@ -19,19 +19,28 @@
     var lastFailureSignature = '';
     var lastFailureLog = 0;
     var lastLoading = null;
+    var viewportDocuments = new WeakSet();
     var controlsSelector = '.vjs-control-bar,.vjs-big-play-button,.plyr__controls,' +
         '.dplayer-controller,.jw-controlbar,.jw-display-controls,' +
         '.xgplayer-controls,.xgplayer-start';
     window.wvt_isViewportFullscreen = false;
 
     function attached(element) {
-        return !!element && element.nodeType === 1 && document.documentElement.contains(element);
+        if (!element || element.nodeType !== 1) return false;
+        var owner = element.ownerDocument || document;
+        if (!owner.documentElement.contains(element)) return false;
+        if (owner === document) return true;
+        try { return attached(owner.defaultView.frameElement); } catch (ignored) { return false; }
     }
 
     function isVisible(element) {
         if (!attached(element)) return false;
         var rect = element.getBoundingClientRect();
-        if (rect.width < 60 || rect.height < 35) return false;
+        // Some responsive wrappers collapse to zero height while the stream is already decoding.
+        // A real playing video may be promoted out of that layout; hidden/inactive players remain excluded.
+        var decoding = element.tagName === 'VIDEO' && element.readyState >= 2 && !element.paused &&
+            !element.error && element.videoWidth > 0 && element.videoHeight > 0;
+        if (!decoding && (rect.width < 60 || rect.height < 35)) return false;
         for (var node = element; node; node = node.parentElement) {
             var style = window.getComputedStyle(node);
             if (style.display === 'none' || style.visibility === 'hidden' ||
@@ -46,16 +55,26 @@
     }
 
     function findTarget() {
+        // Do not lock a poster/title player fullscreen before the channel-selection steps.
+        if (typeof wvt_needPreClick === 'function' && wvt_needPreClick() && !window.wvt_preClickFinished) return null;
+        if (typeof wvt_needPreClick2 === 'function' && wvt_needPreClick2() && !window.wvt_preClickFinished2) return null;
         // The adapter identifies the site's real player, including container/iframe players.
         var adapted = window.wvt_video;
-        if (adapted && adapted !== document.body && adapted !== document.documentElement && isVisible(adapted)) {
-            return adapted;
-        }
-        if (target && attached(target) && isVisible(target)) return target;
+        var adaptedMedia = adapted ? mediaElement(adapted) : null;
+        if (adaptedMedia && isVisible(adaptedMedia) && !adaptedMedia.error && !adaptedMedia.paused && adaptedMedia.readyState >= 2) return adaptedMedia;
         // Lazy players can appear after onPageFinished; limit scans during DOM activity.
-        if (Date.now() - lastDiscovery < 700) return null;
+        if (Date.now() - lastDiscovery < 700) return target && attached(target) ? target : null;
         lastDiscovery = Date.now();
-        var videos = document.querySelectorAll('video');
+        var videos = [];
+        function collect(doc, depth) {
+            videos = videos.concat(Array.prototype.slice.call(doc.querySelectorAll('video')));
+            if (depth >= 2) return;
+            var frames = doc.querySelectorAll('iframe');
+            for (var f = 0; f < frames.length; f++) {
+                try { if (frames[f].contentDocument && isVisible(frames[f])) collect(frames[f].contentDocument, depth + 1); } catch (ignored) { }
+            }
+        }
+        collect(document, 0);
         var best = null;
         var bestScore = -1;
         for (var i = 0; i < videos.length; i++) {
@@ -68,7 +87,8 @@
             if (video.error) score -= 8000000;
             if (score > bestScore) { best = video; bestScore = score; }
         }
-        return best;
+        if (best) return best;
+        return adapted && adapted !== document.body && adapted !== document.documentElement && isVisible(adapted) ? adapted : null;
     }
 
     function change(element, property, value) {
@@ -108,7 +128,7 @@
         for (var parent = element.parentElement; parent; parent = parent.parentElement) {
             var computed = window.getComputedStyle(parent);
             // A transformed/filtered/clipped ancestor prevents fixed video from covering the viewport.
-            var rules = { 'transform': 'none', 'perspective': 'none', 'filter': 'none',
+            var rules = { 'zoom': '1', 'transform': 'none', 'perspective': 'none', 'filter': 'none',
                 'backdrop-filter': 'none', 'contain': 'none', 'content-visibility': 'visible',
                 'will-change': 'auto', 'overflow': 'visible', 'clip': 'auto', 'clip-path': 'none' };
             for (var key in rules) {
@@ -128,19 +148,39 @@
                 change(parent, 'z-index', '2147483646');
             }
         }
-        change(document.documentElement, 'background-color', 'black');
-        if (document.body) change(document.body, 'background-color', 'black');
+        var owner = element.ownerDocument || document;
+        change(owner.documentElement, 'background-color', 'black');
+        if (owner.body) change(owner.body, 'background-color', 'black');
     }
 
     function coverViewport(element) {
+        var owner = element.ownerDocument || document;
+        if (!viewportDocuments.has(owner)) {
+            var meta = owner.querySelector('meta[name="viewport"]');
+            if (!meta) { meta = owner.createElement('meta'); meta.name = 'viewport'; (owner.head || owner.documentElement).appendChild(meta); }
+            meta.setAttribute('content', 'width=device-width, initial-scale=1');
+            viewportDocuments.add(owner);
+        }
+        if (owner !== document) {
+            try { if (owner.defaultView.frameElement) coverViewport(owner.defaultView.frameElement); } catch (ignored) { }
+        }
         clearContainingBlocks(element);
+        [owner.documentElement, owner.body].forEach(function (root) {
+            if (!root) return;
+            change(root, 'min-width', '0px');
+            change(root, 'max-width', '100vw');
+            change(root, 'width', '100vw');
+            change(root, 'overflow', 'hidden');
+            change(root, 'margin', '0px');
+            change(root, 'padding', '0px');
+        });
         var rules = { 'position': 'fixed', 'left': '0px', 'top': '0px', 'right': 'auto', 'bottom': 'auto',
             'width': '100vw', 'height': '100vh', 'min-width': '0px', 'min-height': '0px',
             'max-width': 'none', 'max-height': 'none', 'margin': '0px', 'padding': '0px',
             'border': '0px', 'border-radius': '0px', 'box-sizing': 'border-box',
             'z-index': '2147483647', 'object-fit': 'contain', 'object-position': 'center center',
             'background-color': 'black', 'visibility': 'visible', 'opacity': '1',
-            'display': 'block', 'transform': 'none', 'transition': 'none', 'animation': 'none',
+            'display': 'block', 'zoom': '1', 'transform': 'none', 'transition': 'none', 'animation': 'none',
             'clip': 'auto', 'clip-path': 'none', 'mask': 'none', '-webkit-mask': 'none', 'overflow': 'visible' };
         for (var property in rules) change(element, property, rules[property]);
         if (element.tagName === 'VIDEO') {
@@ -158,7 +198,11 @@
     }
 
     function mediaElement(element) {
-        return element.tagName === 'VIDEO' ? element : element.querySelector('video');
+        if (element.tagName === 'VIDEO') return element;
+        if (element.tagName === 'IFRAME') {
+            try { return element.contentDocument && element.contentDocument.querySelector('video'); } catch (ignored) { return null; }
+        }
+        return element.querySelector('video');
     }
 
     function hasPageOffset() {
@@ -222,8 +266,9 @@
         // zoom their root and overflow horizontally, so innerWidth/innerHeight
         // can describe the overflow area rather than the visible layout viewport.
         // This check is shared by video, adapter containers and iframe targets.
-        var layoutViewport = document.documentElement;
-        var visualViewport = window.visualViewport;
+        var owner = element.ownerDocument || document;
+        var layoutViewport = owner.documentElement;
+        var visualViewport = owner.defaultView.visualViewport;
         var viewportWidth = Math.round(layoutViewport.clientWidth ||
             (visualViewport && visualViewport.width) || window.innerWidth);
         var viewportHeight = Math.round(layoutViewport.clientHeight ||
@@ -279,6 +324,12 @@
             lastLoading = null;
             bindVideo(target);
         }
+        // Discovery, playback health and first-frame reporting must agree on the media.
+        var media = mediaElement(target);
+        if (media && window.wvt_video !== media) {
+            window.wvt_video = media;
+            if (typeof wvt_setupVideo === 'function') wvt_setupVideo(media);
+        }
         coverViewport(target);
         bindVideo(target);
         clearLoadingIfReady(mediaElement(target));
@@ -293,6 +344,7 @@
     }
 
     window.wvt_enterViewportFullscreen = enter;
+    window.wvt_isMediaAttached = attached;
     window.wvt_viewportController = { refresh: schedule };
 
     // This file is appended in the same injection scope as main.js. Replace its
@@ -305,6 +357,12 @@
     }
     if (typeof wvt_setupVideoStyle === 'function') {
         wvt_setupVideoStyle = function (video) { video.style.setProperty('object-fit', 'contain', 'important'); };
+    }
+    if (typeof removeInvalidVideo === 'function') {
+        removeInvalidVideo = function () {
+            if (window.wvt_video && !attached(window.wvt_video)) { window.wvt_video = null; return true; }
+            return false;
+        };
     }
     if (typeof wvt_tryEnterFullscreen === 'function') {
         wvt_tryEnterFullscreen = function (video) {

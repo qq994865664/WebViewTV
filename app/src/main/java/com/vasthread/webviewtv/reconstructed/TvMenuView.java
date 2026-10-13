@@ -1,6 +1,7 @@
 package com.vasthread.webviewtv.reconstructed;
 
 import android.content.Context;
+import android.animation.ValueAnimator;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -57,6 +58,8 @@ public final class TvMenuView extends FrameLayout {
     private int currentIndex = -1, currentSource, currentSourceCount, favoriteCount;
     private boolean opened, positioningCategories;
     private int focusRequest;
+    private ValueAnimator categoryScroll;
+    private int pendingCategoryPosition = -1;
 
     public TvMenuView(Context context, List<JSONObject> channels, Listener listener) {
         super(context);
@@ -306,6 +309,7 @@ public final class TvMenuView extends FrameLayout {
     }
 
     public void close() {
+        finishCategoryScroll();
         if (!opened) { setVisibility(GONE); return; }
         opened = false;
         focusRequest++;
@@ -413,6 +417,7 @@ public final class TvMenuView extends FrameLayout {
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            finishCategoryScroll();
             focusRequest++;
             positioningCategories = false;
         }
@@ -424,6 +429,12 @@ public final class TvMenuView extends FrameLayout {
         focusRequest++;
         positioningCategories = false;
         boolean inCategories = list == categoryList;
+        if (inCategories && (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN)) {
+            int position = pendingCategoryPosition >= 0 ? pendingCategoryPosition : list.getSelectedItemPosition();
+            int next = position + (key == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+            if (next >= 0 && next < list.getCount()) { scrollCategoryTo(next); return true; }
+            finishCategoryScroll();
+        } else finishCategoryScroll();
         if (key == KeyEvent.KEYCODE_DPAD_LEFT) {
             if (!inCategories) focusCategories();
             return true;
@@ -442,6 +453,59 @@ public final class TvMenuView extends FrameLayout {
         }
         return false;
     }
+
+    private void scrollCategoryTo(int position) {
+        stopCategoryAnimator();
+        View first = categoryList.getChildAt(0);
+        if (first == null) { categoryList.setSelection(position); return; }
+        int rowHeight = first.getHeight() + categoryList.getDividerHeight();
+        int top = first.getTop() + (position - categoryList.getFirstVisiblePosition()) * rowHeight;
+        int desired = Math.max(categoryList.getPaddingTop(), Math.min(top,
+                categoryList.getHeight() - categoryList.getPaddingBottom() - first.getHeight()));
+        int distance = top - desired;
+        if (distance == 0 || !ValueAnimator.areAnimatorsEnabled()) {
+            pendingCategoryPosition = -1;
+            categoryList.setSelectionFromTop(position, desired - categoryList.getPaddingTop());
+            return;
+        }
+        pendingCategoryPosition = position;
+        final int[] previous = {0};
+        categoryScroll = ValueAnimator.ofInt(0, distance);
+        categoryScroll.setDuration(180);
+        categoryScroll.setInterpolator(new DecelerateInterpolator());
+        categoryScroll.addUpdateListener(animation -> {
+            int offset = (int)animation.getAnimatedValue();
+            categoryList.scrollListBy(offset - previous[0]);
+            previous[0] = offset;
+            if (animation.getAnimatedFraction() >= 1) {
+                pendingCategoryPosition = -1;
+                categoryList.setSelectionFromTop(position, desired - categoryList.getPaddingTop());
+            }
+        });
+        categoryScroll.start();
+    }
+
+    private void stopCategoryAnimator() {
+        if (categoryScroll != null) {
+            categoryScroll.removeAllUpdateListeners();
+            categoryScroll.cancel();
+            categoryScroll = null;
+        }
+    }
+
+    private void finishCategoryScroll() {
+        stopCategoryAnimator();
+        int pending = pendingCategoryPosition;
+        pendingCategoryPosition = -1;
+        if (pending >= 0) {
+            View row = categoryList.getChildAt(pending - categoryList.getFirstVisiblePosition());
+            categoryList.setSelectionFromTop(pending, row == null ? categoryList.getHeight() - px(57)
+                    : row.getTop() - categoryList.getPaddingTop());
+            selectCategory(pending);
+        }
+    }
+
+    @Override protected void onDetachedFromWindow() { stopCategoryAnimator(); super.onDetachedFromWindow(); }
 
     private void paintFocus(ListView list) {
         int selected = list.getSelectedItemPosition();

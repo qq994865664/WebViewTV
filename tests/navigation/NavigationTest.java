@@ -43,6 +43,7 @@ public final class NavigationTest extends Instrumentation {
                 throw new AssertionError("Menu must use full height without an information panel");
             checks++;
             key(KeyEvent.KEYCODE_DPAD_LEFT);
+            verifySmoothCategoryBoundary();
             // Scroll well beyond the first page by normal remote input.
             for (int i = 0; i < 22; i++) key(KeyEvent.KEYCODE_DPAD_DOWN);
             roundTrip("deep group and scrolled channels", true);
@@ -105,6 +106,28 @@ public final class NavigationTest extends Instrumentation {
         catch (Exception e) { throw new IllegalStateException(e); }
     }
     private void settle() { waitForIdleSync(); SystemClock.sleep(100); waitForIdleSync(); }
+    private void verifySmoothCategoryBoundary() {
+        java.util.ArrayList<Integer> offsets = new java.util.ArrayList<>();
+        android.view.ViewTreeObserver.OnPreDrawListener observer = () -> {
+            View first=categories.getChildAt(0);
+            if(first!=null)offsets.add(categories.getFirstVisiblePosition()*(first.getHeight()+categories.getDividerHeight())-first.getTop());
+            return true;
+        };
+        runOnMainSync(() -> {
+            int child=categories.getChildCount()-1;
+            while(child>0 && categories.getChildAt(child).getBottom()>categories.getHeight()-categories.getPaddingBottom())child--;
+            View row=categories.getChildAt(child);
+            categories.setSelectionFromTop(categories.getFirstVisiblePosition()+child,row.getTop()-categories.getPaddingTop());
+        });
+        settle();
+        runOnMainSync(() -> categories.getViewTreeObserver().addOnPreDrawListener(observer));
+        sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
+        SystemClock.sleep(250); waitForIdleSync();
+        runOnMainSync(() -> categories.getViewTreeObserver().removeOnPreDrawListener(observer));
+        if(new java.util.HashSet<>(offsets).size()<3)throw new AssertionError("Boundary must scroll through intermediate frames: "+offsets);
+        for(int i=1;i<offsets.size();i++)if(offsets.get(i)<offsets.get(i-1))throw new AssertionError("Boundary scrolled backward: "+offsets);
+        checks++;
+    }
     private void key(int key) { sendKeyDownUpSync(key); settle(); }
     private int[] snapshot(ListView list) {
         int[] result = new int[3];

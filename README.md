@@ -1,12 +1,14 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.6**（versionCode 14），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.7**（versionCode 15），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.6-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.7-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，右上角进入设置；系统返回键先关闭面板，再显示退出确认。
+
+0.4.7 修复换台残留旧画面、分组跨屏跳动、加载提示闪烁和部分网站全屏不完整。杭州生活增加 HLS 兼容恢复，浙江国际修复零高度播放器，山西三个频道优先使用已验证的官方移动端来源。广东 4K 测试时官方网页未提供播放地址，保留频道并在超时后显示错误。升级后可进入「设置 → 立即更新频道列表」应用最新来源顺序。详见 [0.4.7 发布说明](docs/release-047.md)。
 
 0.4.4 新增超时自动切源：进入 **设置 → 播放 → 播放超时自动切源**，选择关闭、5 秒、10 秒、15 秒或 30 秒，点击「保存并返回」。默认 15 秒，首次加载失败或播放持续卡顿时尝试下一个来源；同一轮故障中每个来源只尝试一次，全部失败后停止。打开面板和退到后台时暂停计时。详见 [0.4.4 发布说明](docs/release-044.md)。
 
