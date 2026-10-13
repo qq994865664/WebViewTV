@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.3.1-research` / versionCode 5，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.3.2-research` / versionCode 6，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 

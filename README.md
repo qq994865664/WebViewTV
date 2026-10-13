@@ -1,8 +1,9 @@
 # WebView电视 · 研究版
 
-面向 Android 电视与遥控操作的 WebView 直播播放器。当前版本为 **0.3.1-research**（versionCode 5），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+面向 Android 电视与遥控操作的 WebView 直播播放器。当前版本为 **0.3.2-research**（versionCode 6），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 - 深色双栏频道菜单，支持分组、收藏、遥控焦点、数字选台与备用来源。
+- 采用已确认的 D 款圆润 TV 图标，统一桌面图标、电视启动横幅与菜单标识。
 - 切换频道后自动全屏；播放画面按返回可确认退出并停止播放。
 - 设置集中管理频道配置、更新周期、节目单和切台选项。
 - 初始配置含 795 个频道条目、984 个网页来源、37 个分组。
@@ -71,6 +72,8 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Sdk 'C:\Android\Sdk' -Jdk 
 直接打开工程，使用 JDK 17 和 SDK 36，同步后构建 `app`。Gradle 插件版本为 8.9.1，首次同步需要取得插件与依赖。仓库未包含 Gradle Wrapper；命令行离线构建使用上面的 PowerShell 脚本。
 
 ## 来源与验证记录
+
+0.3.2 的 D 款图标原稿与导出说明见 [design/README.md](design/README.md)，打包、覆盖安装和 MuMu 显示验证见 [docs/icon-032-validation.md](docs/icon-032-validation.md)。
 
 0.3.1 的实际上传、MuMu 仓库更新及配置保留验证见 [docs/github-sync-validation.md](docs/github-sync-validation.md)。
 

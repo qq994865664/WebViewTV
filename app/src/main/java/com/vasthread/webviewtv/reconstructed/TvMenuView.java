@@ -15,6 +15,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -91,7 +92,13 @@ public final class TvMenuView extends FrameLayout {
 
         LinearLayout header = horizontal();
         header.setPadding(px(12), 0, px(8), 0);
-        header.addView(text("▰", 26, ACCENT), new LinearLayout.LayoutParams(px(38), MATCH_PARENT));
+        ImageView appIcon = new ImageView(context);
+        appIcon.setImageDrawable(context.getApplicationInfo().loadIcon(context.getPackageManager()));
+        appIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        appIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(px(38), px(38));
+        iconParams.setMargins(0, 0, px(8), 0);
+        header.addView(appIcon, iconParams);
         LinearLayout branding = vertical();
         branding.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = text("WebView 电视", 25, INK);

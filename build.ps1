@@ -8,7 +8,8 @@ $bt=Join-Path $Sdk 'build-tools\36.0.0'; $android=Join-Path $Sdk 'platforms\andr
 function Run([string]$exe,[string[]]$arguments){ & $exe @arguments; if($LASTEXITCODE -ne 0){throw "$exe failed: $LASTEXITCODE"} }
 New-Item -ItemType Directory -Force build\classes,build\dex,dist | Out-Null
 if(!(Test-Path app\src\main\assets\china_mainland.json)){throw 'Bundled channel configuration is missing.'}
-Run "$bt\aapt2.exe" @('link','-o','build\unsigned.apk','-I',$android,'--manifest','app\src\main\AndroidManifest.xml','--min-sdk-version','26','--target-sdk-version','35')
+Run "$bt\aapt2.exe" @('compile','--dir','app\src\main\res','-o','build\resources.zip')
+Run "$bt\aapt2.exe" @('link','-o','build\unsigned.apk','-I',$android,'--manifest','app\src\main\AndroidManifest.xml','build\resources.zip','--min-sdk-version','26','--target-sdk-version','35')
 # Windows aapt2 -A writes backslashes for nested assets. jar writes Android ZIP paths with '/'.
 Run "$Jdk\bin\jar.exe" @('uf','build\unsigned.apk','-C','app\src\main','assets')
 & (Join-Path $PSScriptRoot 'verify-assets.ps1') -Apk 'build\unsigned.apk'
