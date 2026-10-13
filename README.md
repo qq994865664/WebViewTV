@@ -1,6 +1,6 @@
-# WebView电视 · 研究版
+# WebView电视
 
-面向 Android 电视与遥控操作的 WebView 直播播放器。当前版本为 **0.3.2-research**（versionCode 6），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+面向 Android 电视与遥控操作的 WebView 直播播放器。当前版本为 **0.3.3**（versionCode 7），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 - 深色双栏频道菜单，支持分组、收藏、遥控焦点、数字选台与备用来源。
 - 采用已确认的 D 款圆润 TV 图标，统一桌面图标、电视启动横幅与菜单标识。

@@ -1,12 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.vasthread.webviewtv.reconstructed"
-    android:versionCode="6"
-    android:versionName="0.3.2-research">
+    android:versionCode="7"
+    android:versionName="0.3.3">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <application
-        android:label="WebView电视·研究版"
+        android:label="WebView电视"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"
