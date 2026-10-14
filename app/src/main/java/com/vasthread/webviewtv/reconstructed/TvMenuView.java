@@ -56,7 +56,7 @@ public final class TvMenuView extends FrameLayout {
     private Function<JSONObject,String> programmeProvider;
     private final TextView[] tools = new TextView[4];
     private android.widget.PopupWindow morePopup;
-    private final int groupWidth, rowHeight, touchHeight;
+    private final int groupWidth, rowHeight, categoryRowHeight, touchHeight;
     private String selectedCategory = FAVORITES;
     private int currentIndex = -1, currentSource, currentSourceCount, favoriteCount;
     private boolean opened, positioningCategories, toolsFromCategories;
@@ -74,6 +74,8 @@ public final class TvMenuView extends FrameLayout {
         groupWidth = Math.round((panelWidth - px(35)) * .25f);
         touchHeight = UiScale.isTelevision(context) ? px(50) : Math.max(px(64), Math.round(48 * getResources().getDisplayMetrics().density));
         rowHeight = UiScale.isTelevision(context) ? px(56) : touchHeight;
+        categoryRowHeight = UiScale.isTelevision(context) ? px(40)
+                : Math.max(Math.round(rowHeight * .7f), Math.round(40 * getResources().getDisplayMetrics().density));
         categories.add(FAVORITES);
         LinkedHashSet<String> unique = new LinkedHashSet<>();
         for (JSONObject channel : channels) {
@@ -465,7 +467,8 @@ public final class TvMenuView extends FrameLayout {
         pendingCategoryPosition = -1;
         if (pending >= 0) {
             View row = categoryList.getChildAt(pending - categoryList.getFirstVisiblePosition());
-            categoryList.setSelectionFromTop(pending, row == null ? categoryList.getHeight() - px(57)
+            categoryList.setSelectionFromTop(pending, row == null ? categoryList.getHeight()
+                    - categoryList.getPaddingBottom() - categoryRowHeight - categoryList.getPaddingTop()
                     : row.getTop() - categoryList.getPaddingTop());
             selectCategory(pending);
         }
@@ -592,13 +595,15 @@ public final class TvMenuView extends FrameLayout {
         final GradientDrawable active = shape(0x33274F7C, 10, 0x6635435C, 1);
         final GradientDrawable focused = shape(TvTheme.FOCUS, 10, TvTheme.ACCENT, 1);
         private boolean activeRow, focusedRow;
+        private final boolean categoryRow;
 
         GuideRow(boolean category) {
             super(TvMenuView.this.getContext());
+            categoryRow = category;
             setOrientation(HORIZONTAL);
             setGravity(Gravity.CENTER_VERTICAL);
             setPadding(px(category ? 10 : 8), 0, px(10), 0);
-            setLayoutParams(new android.widget.AbsListView.LayoutParams(MATCH_PARENT, rowHeight));
+            setLayoutParams(new android.widget.AbsListView.LayoutParams(MATCH_PARENT, category ? categoryRowHeight : rowHeight));
             number = text("", 15, MUTED);
             if (!category) {
                 number.setGravity(Gravity.CENTER);
@@ -640,7 +645,10 @@ public final class TvMenuView extends FrameLayout {
             name.setSelected(focusedRow);
             number.setTextColor(focusedRow ? INK : activeRow ? ACCENT : MUTED);
             detail.setTextColor(MUTED);
-            detail.setVisibility(focusedRow ? VISIBLE : GONE);
+            detail.setVisibility(categoryRow ? GONE : VISIBLE);
+            detail.setEllipsize(focusedRow ? TextUtils.TruncateAt.MARQUEE : TextUtils.TruncateAt.END);
+            detail.setMarqueeRepeatLimit(-1);
+            detail.setSelected(focusedRow);
             badge.setTextColor(activeRow ? ACCENT : MUTED);
         }
 
@@ -684,13 +692,11 @@ public final class TvMenuView extends FrameLayout {
         void bind(GuideRow row, int position) {
             int index = getItem(position);
             JSONObject channel = channels.get(index);
-            JSONArray sources = channel.optJSONArray("urls");
-            int sourceCount = sources == null ? 0 : sources.length();
             row.number.setText(String.format(Locale.ROOT, "%03d", index + 1));
             row.name.setText(channel.optString("name", "未命名频道"));
             String programme = programmeProvider == null ? "" : programmeProvider.apply(channel);
             row.detail.setText(programme != null && !programme.trim().isEmpty()
-                    ? programme : groupOf(channel) + " · " + sourceCount + " 个播放源");
+                    ? programme : "暂无节目单");
             row.badge.setText(index == currentIndex ? "▶" : favorites.contains(channel.optString("name")) ? "★" : "");
             row.bindState(index == currentIndex,
                     channelList.hasFocus() && channelList.getSelectedItemPosition() == position);

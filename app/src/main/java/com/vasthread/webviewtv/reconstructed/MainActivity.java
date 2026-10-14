@@ -61,8 +61,13 @@ public class MainActivity extends Activity {
     private void showReadyInformation() {
         if (!destroyed && videoReady && !playbackFailed && playbackCover.getVisibility()==View.GONE
                 && !playbackPaused && hasWindowFocus() && !isInPictureInPictureMode()
-                && !menu.isOpen() && menu.getVisibility()!=View.VISIBLE && !settingsView.isOpen() && !epgView.isOpen())
+                && !menu.isOpen() && menu.getVisibility()!=View.VISIBLE && !settingsView.isOpen() && !epgView.isOpen()) {
+            if (channelSwipeAnimation.getVisibility()==View.VISIBLE) {
+                handler.postDelayed(showReadyInfo,80);
+                return;
+            }
             channelInfo.showForChannel();
+        }
     }
     private void cancelInformation() { infoPending=false; handler.removeCallbacks(showReadyInfo); if(channelInfo!=null)channelInfo.hide(); }
     private String sourceDomain() {
@@ -334,7 +339,7 @@ public class MainActivity extends Activity {
             public void onChannelDrag(float distance, boolean ready) {
                 channelSwipeAnimation.completeTurn();
                 if (!canSwipePlayback() || channels.isEmpty()) return;
-                channelInfo.hide();
+                cancelInformation();
                 playbackStatus.hide();
                 hud.setVisibility(View.GONE);
                 int next = Math.floorMod(channelIndex + (distance < 0 ? 1 : -1), channels.size());
@@ -555,7 +560,7 @@ public class MainActivity extends Activity {
         if (destroyed || playbackPaused) return;
         long now = SystemClock.elapsedRealtime();
         if (!hasWindowFocus() || menu == null || settingsView.isOpen() || epgView.isOpen()
-                || channelSwipeAnimation.isTurning()) {
+                || channelSwipeAnimation.getVisibility()==View.VISIBLE) {
             sourceFailover.pause(now); startupEstimate.pause(now);
         } else {
             sourceFailover.resume(now); startupEstimate.resume(now);
@@ -584,7 +589,7 @@ public class MainActivity extends Activity {
         if (playbackStatus == null || channels.isEmpty()) return;
         boolean blocked = playbackPaused || !hasWindowFocus() || isInPictureInPictureMode()
                 || (menu != null && (menu.isOpen() || menu.getVisibility()==View.VISIBLE)) || (settingsView != null && settingsView.isOpen())
-                || (epgView != null && epgView.isOpen()) || channelSwipeAnimation.isTurning();
+                || (epgView != null && epgView.isOpen()) || channelSwipeAnimation.getVisibility()==View.VISIBLE;
         if (blocked) { playbackStatus.hide(); return; }
         String name = channels.get(channelIndex).optString("name");
         if (playbackFailed) {

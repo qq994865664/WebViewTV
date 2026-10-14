@@ -103,6 +103,7 @@ final class GestureChecks {
             sampling = 1;
             down(); move(0, -distance, 100);
             verify("page follows full finger distance", Math.abs(playback.getTranslationY()+distance)<1 && animation.getVisibility()==View.VISIBLE);
+            verify("paging has no direction, channel or release hint card", animation.getChildCount()==0 && animation.getBackground()==null);
             expect("preview must not switch");
             up(0, -distance, 250);
             expect("one committed gesture", "channel:1");

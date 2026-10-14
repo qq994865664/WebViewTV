@@ -26,6 +26,11 @@ public final class InformationTest extends Instrumentation {
         SystemClock.sleep(500);ui(()->{check("manual source shows final information",visible());check("domain follows source",text(info,"website").equals("localhost"));play(1,-999);ready();play(0,0);ready();});
         SystemClock.sleep(500);ui(()->{check("rapid changes only latest",visible()&&text(info,"name").equals("First"));invoke("openSettings",new Class[]{});check("settings hides banner",!visible());invoke("closeSettings",new Class[]{});play(1,-999);ready();invoke("openProgramme",new Class[]{});check("EPG hides pending banner",!visible());((EpgView)field("epgView")).close();play(0,0);ready();activity.onWindowFocusChanged(false);activity.onWindowFocusChanged(true);});
         SystemClock.sleep(400);ui(()->check("focus restore cannot reopen",!visible()));
+        ui(()->{play(1,0);ready();((ChannelSwipeAnimation)field("channelSwipeAnimation")).drag(-80,true,"ignored preview");});
+        SystemClock.sleep(400);
+        ui(()->{check("new information waits for active paging",!visible());((ChannelSwipeAnimation)field("channelSwipeAnimation")).reset();});
+        SystemClock.sleep(400);
+        ui(()->check("new information appears after paging settles",visible()));
         out.putString("stream","\nPASS "+checks+" information assertions\n");finish(Activity.RESULT_OK,out);
     }catch(Throwable e){out.putString("stream","\nFAIL "+android.util.Log.getStackTraceString(e));finish(Activity.RESULT_CANCELED,out);}}
     void play(int index,int source){invoke("play",new Class[]{int.class,int.class},index,source);}

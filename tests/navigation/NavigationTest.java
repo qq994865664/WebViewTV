@@ -6,10 +6,12 @@ import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ListView;
+import android.widget.TextView;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 
@@ -44,6 +46,7 @@ public final class NavigationTest extends Instrumentation {
             if (activity.menu.getChildCount() != 1 || panel.getHeight() < activity.menu.getHeight() * .9f)
                 throw new AssertionError("Menu must use full height without an information panel");
             checks++;
+            verifyProgrammePreviewAndRowHeights();
             key(KeyEvent.KEYCODE_DPAD_LEFT);
             verifySmoothCategoryBoundary();
             // Scroll well beyond the first page by normal remote input.
@@ -121,6 +124,80 @@ public final class NavigationTest extends Instrumentation {
         catch (Exception e) { throw new IllegalStateException(e); }
     }
     private void settle() { waitForIdleSync(); SystemClock.sleep(100); waitForIdleSync(); }
+    private TextView rowText(View row, String name) {
+        try { Field f=row.getClass().getDeclaredField(name); f.setAccessible(true); return (TextView)f.get(row); }
+        catch (Exception e) { throw new IllegalStateException(e); }
+    }
+    private void verifyProgrammePreviewAndRowHeights() {
+        runOnMainSync(() -> {
+            if (channels.getChildCount()<3 || categories.getChildCount()==0)
+                throw new AssertionError("Guide fixture needs several visible rows");
+            for (int i=0;i<channels.getChildCount();i++) {
+                TextView detail=rowText(channels.getChildAt(i),"detail");
+                if (detail.getVisibility()!=View.VISIBLE || !"暂无节目单".contentEquals(detail.getText()))
+                    throw new AssertionError("Missing provider must show programme placeholder on every row");
+            }
+            checks++;
+            int groupHeight=categories.getChildAt(0).getHeight();
+            int channelHeight=channels.getChildAt(0).getHeight();
+            if (groupHeight>=channelHeight)
+                throw new AssertionError("Single-line groups must be shorter than two-line channels: "+groupHeight+" / "+channelHeight);
+            if (tvUi && (groupHeight<channelHeight*.65f || groupHeight>channelHeight*.76f))
+                throw new AssertionError("TV group rows must be about 70% of channel rows");
+            if (!tvUi && groupHeight+1<40*categories.getResources().getDisplayMetrics().density)
+                throw new AssertionError("Phone group rows must retain 40dp touch height");
+            checks++;
+            activity.menu.setProgrammeProvider(channel -> {
+                String name=channel.optString("name");
+                if (name.endsWith(":1")) return null;
+                if (name.endsWith(":3")) return " ";
+                return "正在播出：测试节目 "+name;
+            });
+        });
+        settle();
+        int[] before=snapshot(channels);
+        int[] channelRowHeight=new int[1];
+        runOnMainSync(() -> {
+            boolean unfocusedProgramme=false, placeholder=false;
+            channelRowHeight[0]=channels.getChildAt(0).getHeight();
+            for (int i=0;i<channels.getChildCount();i++) {
+                View row=channels.getChildAt(i);
+                if (row.getHeight()!=channelRowHeight[0])
+                    throw new AssertionError("Programme rows must have fixed height regardless of available EPG");
+                TextView detail=rowText(row,"detail");
+                boolean focused=channels.getFirstVisiblePosition()+i==channels.getSelectedItemPosition();
+                if (detail.getVisibility()!=View.VISIBLE)
+                    throw new AssertionError("Programme preview disappeared on an unfocused channel");
+                if (detail.getEllipsize()!=(focused?TextUtils.TruncateAt.MARQUEE:TextUtils.TruncateAt.END)
+                        || detail.isSelected()!=focused)
+                    throw new AssertionError("Only focused programme text should marquee");
+                if ("暂无节目单".contentEquals(detail.getText())) placeholder=true;
+                else if (!focused && detail.getText().toString().startsWith("正在播出：测试节目 ")) unfocusedProgramme=true;
+            }
+            if (!unfocusedProgramme || !placeholder)
+                throw new AssertionError("Unselected programme and missing-guide placeholder must both remain visible");
+            checks+=2;
+        });
+        key(KeyEvent.KEYCODE_DPAD_LEFT);
+        runOnMainSync(() -> {
+            for (int i=0;i<channels.getChildCount();i++) {
+                View row=channels.getChildAt(i);
+                TextView detail=rowText(row,"detail");
+                if (row.getHeight()!=channelRowHeight[0] || detail.getVisibility()!=View.VISIBLE
+                        || detail.getEllipsize()!=TextUtils.TruncateAt.END || detail.isSelected())
+                    throw new AssertionError("Leaving channel focus must preserve row height and programme preview");
+            }
+            checks++;
+        });
+        key(KeyEvent.KEYCODE_DPAD_RIGHT);
+        same("programme preview focus transfer",before,snapshot(channels));
+        runOnMainSync(() -> {
+            for (int i=0;i<channels.getChildCount();i++)
+                if (channels.getChildAt(i).getHeight()!=channelRowHeight[0])
+                    throw new AssertionError("Restoring focus changed channel row height");
+            checks++;
+        });
+    }
     private void verifySmoothCategoryBoundary() {
         java.util.ArrayList<Integer> offsets = new java.util.ArrayList<>();
         android.view.ViewTreeObserver.OnPreDrawListener observer = () -> {
