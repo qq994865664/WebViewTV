@@ -23,18 +23,21 @@ public final class PlaybackStatusView extends LinearLayout {
         addView(heading);addView(source);addView(stage);addView(timing);
         budget=new ProgressBar(context,null,android.R.attr.progressBarStyleHorizontal);budget.setMax(1000);budget.setIndeterminate(false);
         budget.setProgressTintList(ColorStateList.valueOf(TvTheme.ACCENT));budget.setProgressBackgroundTintList(ColorStateList.valueOf(TvTheme.BORDER));
+        budget.setIndeterminateTintList(ColorStateList.valueOf(TvTheme.ACCENT));
         LayoutParams bar=new LayoutParams(-1,px(5));bar.topMargin=px(14);addView(budget,bar);
         actions=new LinearLayout(context);actions.setGravity(Gravity.CENTER);LayoutParams row=new LayoutParams(-1,UiScale.isTelevision(context)?px(52):Math.max(px(52),Math.round(48*getResources().getDisplayMetrics().density)));row.topMargin=px(16);addView(actions,row);
         retry=button("重试",retryAction);next=button("下一个来源",nextAction);channels=button("选择频道",channelsAction);
     }
-    public void loading(String name,String domain,int index,int count,int percent,long remaining,boolean willSwitch,boolean buffering){
+    public void loading(String name,String domain,int index,int count,int percent,long remaining,boolean willSwitch,boolean buffering,boolean uncertain,String waitingLabel){
         position(buffering);
         heading.setText(name);heading.setVisibility(VISIBLE);
         source.setText(domain+" · 来源 "+(index+1)+"/"+count);
-        stage.setText("正在加载..."+percent+"%");
+        stage.setText(buffering ? "正在缓冲…" : uncertain ? waitingLabel : "正在加载..."+percent+"%");
         long seconds=(remaining+999)/1000;
         timing.setText(willSwitch ? seconds+" 秒后自动切换直播源" : "剩余等待 "+seconds+" 秒");
-        budget.setProgress(percent*10,true);budget.setVisibility(VISIBLE);actions.setVisibility(GONE);setVisibility(VISIBLE);
+        budget.setIndeterminate(buffering || uncertain);
+        if(!buffering && !uncertain)budget.setProgress(percent*10,true);
+        budget.setVisibility(VISIBLE);actions.setVisibility(GONE);setVisibility(VISIBLE);
     }
     public void failure(String name,String domain,int index,String message,int count,boolean focus){
         position(false);

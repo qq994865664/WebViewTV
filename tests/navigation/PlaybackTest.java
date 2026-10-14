@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
 import android.webkit.WebView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import com.vasthread.webviewtv.reconstructed.*;
 import org.json.*;
@@ -71,8 +72,29 @@ public final class PlaybackTest extends Instrumentation {
                 activity.new Bridge().reportPlaybackStageForToken(activity.new Bridge().getPlaybackToken());
                 verify("stage updates do not reset timeout",policy.remaining(SystemClock.elapsedRealtime())<=before);
                 verify("one connection card replaces the information banner",((View)field("playbackStatus")).getVisibility()==View.VISIBLE && ((View)field("channelInfo")).getVisibility()==View.GONE);
+                before=policy.remaining(SystemClock.elapsedRealtime());
+                activity.new Bridge().reportMediaBytes(activity.new Bridge().getPlaybackToken(),16);
+                activity.new Bridge().reportBufferProgress(activity.new Bridge().getPlaybackToken(),120);
+                verify("bytes and buffer signals never extend recovery deadline",policy.remaining(SystemClock.elapsedRealtime())<=before);
+                verify("network activity alone cannot prove a frame",!(Boolean)field("videoReady"));
+                verify("fresh startup activity keeps estimated percentage",statusStage().getText().toString().contains("%") && !statusBudget().isIndeterminate());
             });
-            SystemClock.sleep(5500);
+            SystemClock.sleep(2150);
+            ui(() -> {
+                activity.new Bridge().reportMediaBytes(activity.new Bridge().getPlaybackToken(),16);
+                activity.new Bridge().reportBufferProgress(activity.new Bridge().getPlaybackToken(),120);
+                activity.new Bridge().reportMediaBytes(oldToken,100000);
+                activity.new Bridge().reportBufferProgress(oldToken,5000);
+            });
+            SystemClock.sleep(1100);
+            ui(() -> {
+                // Repeating the same counters also requests an immediate native card refresh.
+                activity.new Bridge().reportMediaBytes(activity.new Bridge().getPlaybackToken(),16);
+                verify("idle startup hides misleading percentage",!statusStage().getText().toString().contains("%") && statusStage().getText().toString().contains("直播源"));
+                verify("duplicate counters and stale token cannot keep startup determinate",statusBudget().isIndeterminate());
+                verify("unknown startup still has time to recover",!(Boolean)field("playbackFailed") && ((View)field("playbackStatus")).getVisibility()==View.VISIBLE);
+            });
+            SystemClock.sleep(2000);
             ui(() -> {
                 verify("title-only page reaches a finite error", (Boolean)field("playbackFailed") && ((String)field("failureMessage")).contains("没有备用源"));
                 verify("error stops spinner", ((View)field("progress")).getVisibility()==View.GONE);
@@ -100,6 +122,21 @@ public final class PlaybackTest extends Instrumentation {
             ui(() -> activity.new Bridge().reportPlaybackProgress(activity.new Bridge().getPlaybackToken()));
             SystemClock.sleep(900);
             ui(() -> verify("short buffering does not flash HUD", ((View)field("hud")).getVisibility()==View.GONE));
+            // Stop a real decoded stream, rather than allowing normal frame callbacks to
+            // immediately cancel a synthetic waiting event on an otherwise healthy video.
+            evaluate("(function(){var v=window.wvt_video;v.pause();v.srcObject.getTracks().forEach(function(t){t.stop()});})()");
+            ui(() -> activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(),true));
+            SystemClock.sleep(1250);
+            ui(() -> {
+                verify("playback buffering uses its own label without percentage",((View)field("playbackStatus")).getVisibility()==View.VISIBLE && "正在缓冲…".equals(statusStage().getText().toString()));
+                verify("playback buffering uses indeterminate feedback",statusBudget().isIndeterminate());
+            });
+            evaluate("(function(){var v=window.wvt_video,w=v.ownerDocument.defaultView,c=v.ownerDocument.createElement('canvas');"+
+                    "c.width=640;c.height=360;var ctx=c.getContext('2d'),state=w.__fixtureRecovery={frames:0,playState:'pending',error:''};"+
+                    "function paint(){ctx.fillStyle=(state.frames++%2)?'#684718':'#285c44';ctx.fillRect(0,0,640,360);ctx.fillStyle='white';ctx.font='36px sans-serif';ctx.fillText('Recovered '+state.frames,160,180)}"+
+                    "paint();v.srcObject=c.captureStream(10);w.__fixtureRecoveryTimer=w.setInterval(paint,100);paint();"+
+                    "v.muted=true;v.play().then(function(){state.playState='playing'},function(e){state.playState='rejected';state.error=e.name+': '+e.message});})()");
+            awaitBufferRecovery();
             ui(() -> invoke("play",new Class[]{int.class,int.class},4,-999));
             awaitPlaying("playing video in collapsed wrapper");
             verifyViewport("collapsed player expands to full viewport");
@@ -130,6 +167,21 @@ public final class PlaybackTest extends Instrumentation {
     }
     private void verifyViewport(String label) { verify(label,"true".equals(evaluate("(function(){var v=window.wvt_video,r=v.getBoundingClientRect(),d=v.ownerDocument.documentElement;return v.tagName==='VIDEO'&&Math.abs(r.left)<3&&Math.abs(r.top)<3&&Math.abs(r.width-d.clientWidth)<3&&Math.abs(r.height-d.clientHeight)<3;})()"))); }
     private String evaluate(String script) { CountDownLatch latch=new CountDownLatch(1);String[] value={""};ui(() -> ((WebView)field("web")).evaluateJavascript(script,s->{value[0]=s;latch.countDown();}));try{if(!latch.await(5,TimeUnit.SECONDS))throw new AssertionError("JS evaluation timeout");}catch(InterruptedException e){throw new RuntimeException(e);}return value[0]; }
+    private void awaitBufferRecovery() {
+        long end=SystemClock.uptimeMillis()+2500;boolean[] resumed={false};
+        while(SystemClock.uptimeMillis()<end) { ui(() -> resumed[0]=!(Boolean)field("buffering") && !(Boolean)field("playbackFailed") && ((View)field("playbackStatus")).getVisibility()==View.GONE);if(resumed[0])break;SystemClock.sleep(100); }
+        if(!resumed[0]) {
+            String[] nativeState={""};
+            ui(() -> nativeState[0]="buffering="+field("buffering")+", playbackFailed="+field("playbackFailed")+", videoReady="+field("videoReady")
+                    +", pageCommitted="+field("pageCommitted")+", viewportFullscreen="+field("viewportFullscreen")+", playbackPaused="+field("playbackPaused")
+                    +", currentToken="+activity.new Bridge().getPlaybackToken());
+            throw new AssertionError("real frames failed to hide buffering card: native{"+nativeState[0]+"}; JS="+evaluate("(function(){var v=window.wvt_video,w=v&&v.ownerDocument.defaultView,s=v&&v.srcObject;return JSON.stringify({video:!!v,paused:v&&v.paused,ended:v&&v.ended,readyState:v&&v.readyState,currentTime:v&&v.currentTime,width:v&&v.videoWidth,height:v&&v.videoHeight,mediaError:v&&v.error&&v.error.message,tracks:s&&s.getTracks().map(function(t){return{kind:t.kind,readyState:t.readyState,enabled:t.enabled,muted:t.muted}}),recovery:w&&w.__fixtureRecovery,jsToken:window.__wvtPlaybackToken,bridgeToken:window.main&&window.main.getPlaybackToken(),playbackHealth:window.wvt_playbackHealth});})()"));
+        }
+        verify("real frames hide buffering card after recovery",resumed[0]);
+    }
+    private TextView statusStage(){return (TextView)statusField("stage");}
+    private ProgressBar statusBudget(){return (ProgressBar)statusField("budget");}
+    private Object statusField(String name){try{Field f=PlaybackStatusView.class.getDeclaredField(name);f.setAccessible(true);return f.get(field("playbackStatus"));}catch(Exception e){throw new RuntimeException(e);}}
     private TextView cover(){return (TextView)field("playbackCover");}
     private void verify(String label,boolean ok){if(!ok)throw new AssertionError(label);checks++;}
     private Object field(String name){try{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f.get(activity);}catch(Exception e){throw new RuntimeException(e);}}

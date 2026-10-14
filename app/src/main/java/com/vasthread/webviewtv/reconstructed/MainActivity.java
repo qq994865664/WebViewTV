@@ -304,7 +304,8 @@ public class MainActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view, int value) {
-                if (!navigationPending && !playbackFailed) startupEstimate.page(value);
+                if (!navigationPending && !playbackFailed && !startupRecorded)
+                    startupEstimate.page(value,SystemClock.elapsedRealtime());
                 if (value >= (fastSwitch ? 30 : 80)) inject();
             }
             @Override public boolean onConsoleMessage(ConsoleMessage message) {
@@ -466,7 +467,7 @@ public class MainActivity extends Activity {
         JSONObject item = urls.optJSONObject(sourceIndex);
         String url = item == null ? urls.optString(sourceIndex) : item.optString("url");
         sourceUrl = url;
-        historyKey = "startup:" + java.util.UUID.nameUUIDFromBytes(url.getBytes(StandardCharsets.UTF_8));
+        historyKey = "startupPhases:" + java.util.UUID.nameUUIDFromBytes(url.getBytes(StandardCharsets.UTF_8));
         pendingNavigationUrl = url;
         web.stopLoading();
         extra = item == null ? "" : item.optString("extra", "");
@@ -536,7 +537,7 @@ public class MainActivity extends Activity {
         handler.removeCallbacks(delayedBuffering);
         handler.removeCallbacks(showReadyInfo);
         startupRecorded=false;
-        startupEstimate.start(SystemClock.elapsedRealtime(), PlaybackEstimate.median(prefs.getString(historyKey,"")));
+        startupEstimate.start(SystemClock.elapsedRealtime(), prefs.getString(historyKey,""));
         switchStarted = SystemClock.elapsedRealtime();
         playbackToken++;
         buffering = true;
@@ -600,7 +601,8 @@ public class MainActivity extends Activity {
             channelInfo.hide();
             long now = SystemClock.elapsedRealtime();
             playbackStatus.loading(name, sourceDomain(), sourceIndex, sourceCount, startupEstimate.value(now),
-                    sourceFailover.remaining(now), sourceFailover.willSwitch(now), videoReady && playbackCover.getVisibility() != View.VISIBLE);
+                    sourceFailover.remaining(now), sourceFailover.willSwitch(now), videoReady && playbackCover.getVisibility() != View.VISIBLE,
+                    startupEstimate.uncertain(now), startupEstimate.waitingLabel());
         } else {
             playbackStatus.hide();
         }
@@ -634,6 +636,7 @@ public class MainActivity extends Activity {
 
     private void playbackProgress() {
         if (playbackFailed) return;
+        if (!startupRecorded) startupEstimate.media(3,SystemClock.elapsedRealtime());
         videoReady = true;
         if (!pageCommitted || (!viewportFullscreen && fullscreen == null)) {
             loadingPhase = "正在调整播放画面";
@@ -679,7 +682,7 @@ public class MainActivity extends Activity {
         if (!startupRecorded) {
             startupRecorded=true;
             String history=prefs.getString(historyKey, "");
-            prefs.edit().putString(historyKey, PlaybackEstimate.remember(history,startupEstimate.elapsed(SystemClock.elapsedRealtime()))).apply();
+            prefs.edit().putString(historyKey, startupEstimate.rememberPhases(history,SystemClock.elapsedRealtime())).apply();
         }
         if (infoPending) { infoPending=false; handler.postDelayed(showReadyInfo,200); }
     }
@@ -1151,8 +1154,24 @@ public class MainActivity extends Activity {
     public class Bridge {
         @JavascriptInterface public void reportMediaStage(String token,int stage) {
             runOnUiThread(() -> {
-                if(destroyed || playbackFailed || !Objects.equals(token,getPlaybackToken()))return;
+                if(destroyed || playbackFailed || startupRecorded || !Objects.equals(token,getPlaybackToken()))return;
                 startupEstimate.media(stage,SystemClock.elapsedRealtime());
+                updatePlaybackStatus();
+            });
+        }
+        @JavascriptInterface public void reportBufferProgress(String token,long aheadMillis) {
+            runOnUiThread(() -> {
+                if(destroyed || playbackFailed || startupRecorded || !Objects.equals(token,getPlaybackToken()))return;
+                startupEstimate.buffer(aheadMillis,SystemClock.elapsedRealtime());
+                updatePlaybackStatus();
+            });
+        }
+        @JavascriptInterface public void reportMediaBytes(String token,long cumulativeBytes) {
+            runOnUiThread(() -> {
+                if(destroyed || playbackFailed || startupRecorded || !Objects.equals(token,getPlaybackToken()))return;
+                // Network activity does not prove media readiness or extend source deadlines.
+                startupEstimate.bytes(cumulativeBytes,SystemClock.elapsedRealtime());
+                updatePlaybackStatus();
             });
         }
         @JavascriptInterface public void reportPlaybackStageForToken(String token) {
@@ -1184,7 +1203,7 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void reportPlaybackReady(String token, String evidence) {
             runOnUiThread(() -> {
-                if (destroyed || !Objects.equals(token, getPlaybackToken()) || firstFrameReported || channels.isEmpty()) return;
+                if (destroyed || playbackFailed || !Objects.equals(token, getPlaybackToken()) || firstFrameReported || channels.isEmpty()) return;
                 firstFrameReported = true;
                 playbackProgress();
                 if (rememberSource) prefs.edit().putString("source:" + channelKey(channels.get(channelIndex)),
