@@ -31,32 +31,24 @@ public final class ChannelInfoView extends LinearLayout {
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(px(760), -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         params.bottomMargin = px(24);
         setLayoutParams(params);
-        LinearLayout heading = new LinearLayout(context);
-        heading.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout title = new LinearLayout(context);
-        title.setOrientation(VERTICAL);
-        title.addView(label("正在播放", 11, TvTheme.ACCENT), new LayoutParams(-1, px(18)));
-        name = label("", 20, TvTheme.INK);
+        SourceHeaderView heading = new SourceHeaderView(context,scale,px(25),px(17),TvTheme.INK,TvTheme.MUTED);
+        name = heading.name;
         name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        title.addView(name, new LayoutParams(-1, px(28)));
-        heading.addView(title, new LayoutParams(0, -1, 1));
-        source = label("", 14, TvTheme.MUTED);
-        source.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        heading.addView(source, new LayoutParams(px(100), -1));
-        addView(heading, new LayoutParams(-1, px(50)));
-        website = label("", 14, TvTheme.MUTED);
-        addView(website, new LayoutParams(-1, px(24)));
-        nowProgramme = label("", 13, TvTheme.INK);
-        nextProgramme = label("", 12, TvTheme.MUTED);
-        addView(nowProgramme, new LayoutParams(-1, px(18)));
-        addView(nextProgramme, new LayoutParams(-1, px(18)));
+        source = heading.source;
+        website = heading.website;
+        LayoutParams headerParams=new LayoutParams(-1,-2);headerParams.bottomMargin=px(6);
+        addView(heading,headerParams);
+        nowProgramme = label("", 16, TvTheme.INK);
+        nextProgramme = label("", 15, TvTheme.MUTED);
+        addView(nowProgramme, new LayoutParams(-1, -2));
+        addView(nextProgramme, new LayoutParams(-1, -2));
         setVisibility(GONE);
     }
 
     public void setChannel(String title, int sourceIndex, int count, String domain) {
         name.setText(title);
         website.setText(domain);
-        source.setText(count > 0 ? "源 " + (sourceIndex + 1) + " / " + count : "暂无播放源");
+        source.setText(count > 0 ? "源 " + (sourceIndex + 1) + "/" + count : "暂无播放源");
     }
 
     /** Guide refreshes update content without extending or reopening the banner. */
@@ -96,6 +88,7 @@ public final class ChannelInfoView extends LinearLayout {
         view.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(size));
         view.setGravity(Gravity.CENTER_VERTICAL);
         view.setSingleLine(true);
+        view.setIncludeFontPadding(false);
         view.setEllipsize(android.text.TextUtils.TruncateAt.END);
         return view;
     }

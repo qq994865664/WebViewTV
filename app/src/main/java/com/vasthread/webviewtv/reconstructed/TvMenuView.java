@@ -56,7 +56,7 @@ public final class TvMenuView extends FrameLayout {
     private Function<JSONObject,String> programmeProvider;
     private final TextView[] tools = new TextView[4];
     private android.widget.PopupWindow morePopup;
-    private final int groupWidth, rowHeight, categoryRowHeight, touchHeight;
+    private final int groupWidth, rowHeight, categoryRowHeight, touchHeight, toolBarHeight;
     private String selectedCategory = FAVORITES;
     private int currentIndex = -1, currentSource, currentSourceCount, favoriteCount;
     private boolean opened, positioningCategories, toolsFromCategories;
@@ -74,8 +74,10 @@ public final class TvMenuView extends FrameLayout {
         groupWidth = Math.round((panelWidth - px(35)) * .25f);
         touchHeight = UiScale.isTelevision(context) ? px(50) : Math.max(px(64), Math.round(48 * getResources().getDisplayMetrics().density));
         rowHeight = UiScale.isTelevision(context) ? px(56) : touchHeight;
-        categoryRowHeight = UiScale.isTelevision(context) ? px(40)
+        int previousCategoryRowHeight = UiScale.isTelevision(context) ? px(40)
                 : Math.max(Math.round(rowHeight * .7f), Math.round(40 * getResources().getDisplayMetrics().density));
+        categoryRowHeight = Math.max(1, Math.round(previousCategoryRowHeight * .6f));
+        toolBarHeight = Math.max(1, Math.round(touchHeight * .5f));
         categories.add(FAVORITES);
         LinkedHashSet<String> unique = new LinkedHashSet<>();
         for (JSONObject channel : channels) {
@@ -145,10 +147,10 @@ public final class TvMenuView extends FrameLayout {
         tools[3] = action("更多 ···", 15, this::showMore);
         for (TextView tool : tools) {
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1);
-            params.setMargins(px(4), px(2), px(4), px(2));
+            params.setMargins(px(4), px(1), px(4), px(1));
             toolBar.addView(tool, params);
         }
-        panel.addView(toolBar, new LinearLayout.LayoutParams(MATCH_PARENT, touchHeight));
+        panel.addView(toolBar, new LinearLayout.LayoutParams(MATCH_PARENT, toolBarHeight));
         TextView hints = text("↑↓ 浏览    ←→ 切换区域    确定播放", 12, MUTED);
         hints.setGravity(Gravity.CENTER);
         panel.addView(hints, new LinearLayout.LayoutParams(MATCH_PARENT, px(32)));

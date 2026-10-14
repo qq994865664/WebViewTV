@@ -49,8 +49,11 @@ public final class NavigationTest extends Instrumentation {
             verifyProgrammePreviewAndRowHeights();
             key(KeyEvent.KEYCODE_DPAD_LEFT);
             verifySmoothCategoryBoundary();
-            // Scroll well beyond the first page by normal remote input.
-            for (int i = 0; i < 22; i++) key(KeyEvent.KEYCODE_DPAD_DOWN);
+            // Compact TV rows expose more groups per page. Stay inside the list
+            // while scrolling deeper, rather than moving into the toolbar.
+            int deeperSteps=Math.min(22,categories.getCount()-1-snapshot(categories)[0]);
+            if(deeperSteps<=0)throw new AssertionError("Fixture needs groups beyond its first page");
+            for (int i = 0; i < deeperSteps; i++) key(KeyEvent.KEYCODE_DPAD_DOWN);
             roundTrip("deep group and scrolled channels", true);
             // Return at bottom/top boundaries must also keep pixel offsets.
             runOnMainSync(() -> categories.setSelection(categories.getCount() - 1));
@@ -142,10 +145,27 @@ public final class NavigationTest extends Instrumentation {
             int channelHeight=channels.getChildAt(0).getHeight();
             if (groupHeight>=channelHeight)
                 throw new AssertionError("Single-line groups must be shorter than two-line channels: "+groupHeight+" / "+channelHeight);
-            if (tvUi && (groupHeight<channelHeight*.65f || groupHeight>channelHeight*.76f))
-                throw new AssertionError("TV group rows must be about 70% of channel rows");
-            if (!tvUi && groupHeight+1<40*categories.getResources().getDisplayMetrics().density)
-                throw new AssertionError("Phone group rows must retain 40dp touch height");
+            float scale=(Float)field("scale");
+            int previousGroupHeight=tvUi ? Math.max(1,Math.round(40*scale))
+                    : Math.max(Math.round(channelHeight*.7f),Math.round(40*categories.getResources().getDisplayMetrics().density));
+            if (groupHeight!=Math.round(previousGroupHeight*.6f))
+                throw new AssertionError("Group rows must be 60% of their previous height: "+groupHeight+" / "+previousGroupHeight);
+            int expectedChannelHeight=tvUi ? Math.max(1,Math.round(56*scale)) : (Integer)field("touchHeight");
+            if (channelHeight!=expectedChannelHeight)
+                throw new AssertionError("Compact groups must preserve two-line channel height");
+            checks++;
+            TextView[] tools=(TextView[])field("tools");
+            int previousToolHeight=(Integer)field("touchHeight");
+            View toolBar=(View)tools[0].getParent();
+            if (toolBar.getHeight()!=Math.round(previousToolHeight*.5f))
+                throw new AssertionError("Bottom toolbar must be half its previous height");
+            for (TextView tool:tools) {
+                if (Math.abs(tool.getWidth()-tools[0].getWidth())>1)
+                    throw new AssertionError("Four compact tools must retain equal widths");
+                android.graphics.Paint.FontMetrics metrics=tool.getPaint().getFontMetrics();
+                if (tool.getHeight()+1<metrics.descent-metrics.ascent)
+                    throw new AssertionError("Compact toolbar clipped its label: "+tool.getText());
+            }
             checks++;
             activity.menu.setProgrammeProvider(channel -> {
                 String name=channel.optString("name");

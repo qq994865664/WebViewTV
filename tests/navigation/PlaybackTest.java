@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -62,7 +63,10 @@ public final class PlaybackTest extends Instrumentation {
                 activity.new Bridge().reportViewportFullscreenForToken(oldToken,1280,720,640,360);
             });
             SystemClock.sleep(700);
-            ui(() -> verify("old callbacks cannot expose previous channel", cover().getVisibility()==View.VISIBLE && !(Boolean)field("videoReady")));
+            ui(() -> {
+                verify("old callbacks cannot expose previous channel", cover().getVisibility()==View.VISIBLE && !(Boolean)field("videoReady"));
+                verifySourceHeader((PlaybackStatusView)field("playbackStatus"),"loading header",false);
+            });
             ui(() -> activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(), false));
             SystemClock.sleep(150);
             ui(() -> verify("play event without a frame is not ready", !(Boolean)field("videoReady")));
@@ -99,6 +103,7 @@ public final class PlaybackTest extends Instrumentation {
                 verify("title-only page reaches a finite error", (Boolean)field("playbackFailed") && ((String)field("failureMessage")).contains("没有备用源"));
                 verify("error stops spinner", ((View)field("progress")).getVisibility()==View.GONE);
                 verify("failure shows actionable card", ((View)field("playbackStatus")).getVisibility()==View.VISIBLE && ((View)field("playbackStatus")).hasFocus());
+                verifySourceHeader((PlaybackStatusView)field("playbackStatus"),"failure header",false);
                 for(int i=0;i<10;i++) {
                     activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(),true);
                     activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(),false);
@@ -144,6 +149,7 @@ public final class PlaybackTest extends Instrumentation {
             awaitPlaying("desktop page without viewport metadata");
             verifyViewport("wide desktop page fills screen");
             verify("no horizontal overflow after fullscreen", "true".equals(evaluate("Math.abs(innerWidth-document.documentElement.clientWidth)<3")));
+            verifyLongSourceHeader();
             result.putString("stream","\nPASS "+checks+" playback assertions\n"); finish(Activity.RESULT_OK,result);
         } catch(Throwable error) {
             result.putString("stream","\nFAIL "+android.util.Log.getStackTraceString(error)); finish(Activity.RESULT_CANCELED,result);
@@ -182,6 +188,40 @@ public final class PlaybackTest extends Instrumentation {
     private TextView statusStage(){return (TextView)statusField("stage");}
     private ProgressBar statusBudget(){return (ProgressBar)statusField("budget");}
     private Object statusField(String name){try{Field f=PlaybackStatusView.class.getDeclaredField(name);f.setAccessible(true);return f.get(field("playbackStatus"));}catch(Exception e){throw new RuntimeException(e);}}
+    private void verifyLongSourceHeader(){
+        PlaybackStatusView[] fixture={null};
+        String domain="extremely-long-live-source-hostname-to-check-layout.example.invalid";
+        ui(()->{
+            fixture[0]=new PlaybackStatusView(activity,()->{},()->{},()->{});
+            ((ViewGroup)activity.findViewById(android.R.id.content)).addView(fixture[0]);
+            fixture[0].loading("广东卫视（4K）",domain,1,2,68,9000,true,false,false,"正在连接直播源…");
+        });
+        waitForIdleSync();SystemClock.sleep(100);
+        ui(()->{
+            verifySourceHeader(fixture[0],"long loading header",true);
+            fixture[0].failure("广东卫视（4K）",domain,1,"直播源暂时无法播放",2,false);
+        });
+        waitForIdleSync();SystemClock.sleep(100);
+        ui(()->{
+            verifySourceHeader(fixture[0],"long failure header",true);
+            ((ViewGroup)fixture[0].getParent()).removeView(fixture[0]);
+        });
+    }
+    private void verifySourceHeader(PlaybackStatusView card,String label,boolean longDomain){
+        TextView title=cardLabel(card,"heading"),domain=cardLabel(card,"website"),count=cardLabel(card,"source");
+        ViewGroup row=(ViewGroup)title.getParent();
+        int[] a=new int[2],b=new int[2],c=new int[2],r=new int[2];
+        title.getLocationInWindow(a);domain.getLocationInWindow(b);count.getLocationInWindow(c);row.getLocationInWindow(r);
+        verify(label+" title and source share vertical center",Math.abs(a[1]+title.getHeight()/2-b[1]-domain.getHeight()/2)<=2&&Math.abs(b[1]+domain.getHeight()/2-c[1]-count.getHeight()/2)<=2);
+        verify(label+" domain precedes right-aligned source",b[0]+domain.getWidth()<=c[0]&&Math.abs(c[0]+count.getWidth()-(r[0]+row.getWidth()-row.getPaddingRight()))<=2);
+        verify(label+" source counter remains complete",count.getLayout()!=null&&count.getLayout().getEllipsisCount(0)==0&&count.getWidth()-count.getCompoundPaddingLeft()-count.getCompoundPaddingRight()>=Math.ceil(count.getPaint().measureText(count.getText().toString())));
+        for(TextView view:new TextView[]{title,domain,count}){
+            android.graphics.Paint.FontMetricsInt font=view.getPaint().getFontMetricsInt();
+            verify(label+" text has vertical room: "+view.getText(),view.getHeight()>0&&view.getBaseline()+font.ascent>=view.getPaddingTop()-1&&view.getBaseline()+font.descent<=view.getHeight()-view.getPaddingBottom()+1);
+        }
+        if(longDomain)verify(label+" long domain ellipsizes",domain.getEllipsize()==android.text.TextUtils.TruncateAt.END&&domain.getLayout()!=null&&domain.getLayout().getEllipsisCount(0)>0);
+    }
+    private TextView cardLabel(PlaybackStatusView card,String name){try{Field f=PlaybackStatusView.class.getDeclaredField(name);f.setAccessible(true);return (TextView)f.get(card);}catch(Exception e){throw new RuntimeException(e);}}
     private TextView cover(){return (TextView)field("playbackCover");}
     private void verify(String label,boolean ok){if(!ok)throw new AssertionError(label);checks++;}
     private Object field(String name){try{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);return f.get(activity);}catch(Exception e){throw new RuntimeException(e);}}

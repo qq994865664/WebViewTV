@@ -10,7 +10,7 @@ import android.widget.*;
 /** A single passive connection card that becomes actionable on terminal failure. */
 public final class PlaybackStatusView extends LinearLayout {
     private final float scale;
-    private final TextView heading, stage, timing, source;
+    private final TextView heading, stage, timing, source, website;
     private final ProgressBar budget;
     private final LinearLayout actions;
     private final TextView retry,next,channels;
@@ -18,9 +18,10 @@ public final class PlaybackStatusView extends LinearLayout {
         super(context);scale=UiScale.landscape(context,960);setOrientation(VERTICAL);setPadding(px(26),px(20),px(26),px(20));
         setBackground(shape(TvTheme.PANEL,TvTheme.BORDER));setVisibility(GONE);
         setLayoutParams(new FrameLayout.LayoutParams(px(520),-2,Gravity.CENTER));
-        heading=label(18,TvTheme.INK);stage=label(23,TvTheme.INK);source=label(14,TvTheme.ACCENT);timing=label(15,TvTheme.MUTED);
-        source.setSingleLine(true);source.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        addView(heading);addView(source);addView(stage);addView(timing);
+        SourceHeaderView header=new SourceHeaderView(context,scale,UiScale.text(context,18,scale),UiScale.text(context,14,scale),TvTheme.INK,TvTheme.ACCENT);
+        heading=header.name;source=header.source;website=header.website;
+        stage=label(23,TvTheme.INK);timing=label(15,TvTheme.MUTED);
+        addView(header,new LayoutParams(-1,-2));addView(stage);addView(timing);
         budget=new ProgressBar(context,null,android.R.attr.progressBarStyleHorizontal);budget.setMax(1000);budget.setIndeterminate(false);
         budget.setProgressTintList(ColorStateList.valueOf(TvTheme.ACCENT));budget.setProgressBackgroundTintList(ColorStateList.valueOf(TvTheme.BORDER));
         budget.setIndeterminateTintList(ColorStateList.valueOf(TvTheme.ACCENT));
@@ -31,7 +32,7 @@ public final class PlaybackStatusView extends LinearLayout {
     public void loading(String name,String domain,int index,int count,int percent,long remaining,boolean willSwitch,boolean buffering,boolean uncertain,String waitingLabel){
         position(buffering);
         heading.setText(name);heading.setVisibility(VISIBLE);
-        source.setText(domain+" · 来源 "+(index+1)+"/"+count);
+        website.setText(domain);source.setText("源 "+(index+1)+"/"+count);
         stage.setText(buffering ? "正在缓冲…" : uncertain ? waitingLabel : "正在加载..."+percent+"%");
         long seconds=(remaining+999)/1000;
         timing.setText(willSwitch ? seconds+" 秒后自动切换直播源" : "剩余等待 "+seconds+" 秒");
@@ -42,7 +43,7 @@ public final class PlaybackStatusView extends LinearLayout {
     public void failure(String name,String domain,int index,String message,int count,boolean focus){
         position(false);
         heading.setText(name);heading.setVisibility(VISIBLE);stage.setText(message);
-        source.setText(domain+" · 来源 "+(index+1)+"/"+count);
+        website.setText(domain);source.setText("源 "+(index+1)+"/"+count);
         timing.setText("");timing.setVisibility(GONE);budget.setVisibility(GONE);actions.setVisibility(VISIBLE);
         next.setVisibility(count>1?VISIBLE:GONE);setVisibility(VISIBLE);
         if(focus){if(count>1)next.requestFocus();else retry.requestFocus();}
