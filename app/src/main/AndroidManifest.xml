@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.vasthread.webviewtv.reconstructed"
-    android:versionCode="20"
-    android:versionName="0.4.12">
+    android:versionCode="21"
+    android:versionName="0.4.13">
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />

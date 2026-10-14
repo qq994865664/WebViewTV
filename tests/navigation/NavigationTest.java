@@ -148,8 +148,8 @@ public final class NavigationTest extends Instrumentation {
             float scale=(Float)field("scale");
             int previousGroupHeight=tvUi ? Math.max(1,Math.round(40*scale))
                     : Math.max(Math.round(channelHeight*.7f),Math.round(40*categories.getResources().getDisplayMetrics().density));
-            if (groupHeight!=Math.round(previousGroupHeight*.6f))
-                throw new AssertionError("Group rows must be 60% of their previous height: "+groupHeight+" / "+previousGroupHeight);
+            if (groupHeight!=Math.round(previousGroupHeight*.7f))
+                throw new AssertionError("Group rows must be 70% of their original height: "+groupHeight+" / "+previousGroupHeight);
             int expectedChannelHeight=tvUi ? Math.max(1,Math.round(56*scale)) : (Integer)field("touchHeight");
             if (channelHeight!=expectedChannelHeight)
                 throw new AssertionError("Compact groups must preserve two-line channel height");

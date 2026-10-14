@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.12` / versionCode 20，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.13` / versionCode 21，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.13：分组行高改为缩小 30%
+
+左侧分组行高改为 0.4.11 原始高度的 70%，即缩小 30%，比 0.4.12 的 60% 高度增加约 16.7%。仅调整分组行高，保留底部四栏按钮高度、频道信息字号、右侧来源布局、节目预览、深蓝配色及播放逻辑。详见 [release-0413.md](release-0413.md)。
 
 ### 0.4.12：紧凑菜单与同一行来源布局
 
