@@ -22,7 +22,13 @@ public final class NavigationActivity extends Activity {
                 }
             }
         } catch (Exception e) { throw new IllegalStateException(e); }
-        menu = new TvMenuView(this, channels, null);
+        android.content.Context menuContext=this;
+        if (getIntent().getBooleanExtra("tvUi",false)) {
+            android.content.res.Configuration c=new android.content.res.Configuration(getResources().getConfiguration());
+            c.uiMode=(c.uiMode & ~android.content.res.Configuration.UI_MODE_TYPE_MASK)|android.content.res.Configuration.UI_MODE_TYPE_TELEVISION;
+            menuContext=new android.view.ContextThemeWrapper(createConfigurationContext(c),android.R.style.Theme_Material_NoActionBar);
+        }
+        menu = new TvMenuView(menuContext, channels, null);
         menu.setCurrentChannel(0, 0, 1, new HashSet<>());
         setContentView(menu);
         menu.open();

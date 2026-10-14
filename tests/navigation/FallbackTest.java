@@ -47,15 +47,16 @@ public final class FallbackTest extends Instrumentation {
             SystemClock.sleep(6200); verify("all failed sources stop",source()==2);
             callUi(() -> invoke("play", new Class[]{int.class,int.class},0,0));
             for(int i=0;i<7;i++) {
-                callUi(() -> { MainActivity.Bridge bridge=activity.new Bridge(); bridge.reportPlaybackProgress(bridge.getPlaybackToken()); });
+                callUi(() -> { try { for(String name:new String[]{"pageCommitted","viewportFullscreen"}) { Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);f.setBoolean(activity,true); } ((android.view.View)field(activity,"playbackCover")).setVisibility(android.view.View.GONE); } catch(Exception e){throw new RuntimeException(e); } MainActivity.Bridge bridge=activity.new Bridge(); bridge.reportPlaybackProgress(bridge.getPlaybackToken()); });
                 SystemClock.sleep(1000);
             }
             verify("continuous progress keeps current source",source()==0);
             callUi(() -> invoke("showMenu",new Class[]{boolean.class},true));
-            SystemClock.sleep(6200); verify("menu suspends timeout",source()==0);
+            SystemClock.sleep(6200); verify("menu keeps recovery running",source()==1);
+            callUi(() -> verify("automatic recovery preserves open menu", ((TvMenuView)field(activity,"menu")).isOpen()));
             callUi(() -> invoke("showMenu",new Class[]{boolean.class},false));
-            SystemClock.sleep(1000); verify("closing menu grants a fresh interval",source()==0);
-            awaitSource(1,6500); verify("stall after progress switches source",source()==1);
+            SystemClock.sleep(1000); verify("closing menu does not reset interval",source()==1);
+            awaitSource(2,6500); verify("continued outage switches remaining source",source()==2);
             // Setting drafts expose all choices and keep the stored selection.
             callUi(() -> {
                 invoke("openSettings",new Class[]{});
@@ -88,10 +89,15 @@ public final class FallbackTest extends Instrumentation {
         verify("retry preserves attempted sources",f.next(10000)==1);
         f.start(3,1,10000,true); verify("finite round",f.next(15000)==SourceFailover.EXHAUSTED);
         verify("exhaustion reported once",f.next(20000)==SourceFailover.WAIT);
-        f.progress(20000); verify("recovery starts new outage budget",f.next(25000)==2);
+        f.progress(20000); f.progress(21000); f.progress(22000); verify("sustained recovery starts new outage budget",f.next(27000)==2);
         f.start(1,0,0,false); verify("single source",f.next(5000)==SourceFailover.EXHAUSTED);
-        f.configure(0); f.start(3,0,0,false); verify("disabled",f.next(999999)==SourceFailover.WAIT);
-        f.configure(5); f.start(3,0,0,false); f.defer(9000); verify("pause resets deadline",f.next(13000)==SourceFailover.WAIT);
+        f.configure(0); f.start(3,0,0,false); verify("disabled still ends waiting",f.next(18000)==SourceFailover.MANUAL_TIMEOUT);
+        f.configure(5); f.start(3,0,0,false); f.pause(3000); f.resume(9000); verify("pause preserves remaining budget",f.next(10999)==SourceFailover.WAIT); verify("resume does not grant fresh interval",f.next(11000)==1);
+        f.configure(30); f.start(4,0,0,false); f.start(4,1,30000,true);
+        verify("round stops at sixty seconds",f.next(60000)==SourceFailover.ROUND_LIMIT);
+        verify("round limit leaves unattempted sources",f.attemptedCount()==2);
+        f.start(4,2,60000,false); verify("manual continuation starts fresh budget",f.next(89999)==SourceFailover.WAIT);
+        f.configure(5);
         f.start(2,1,14000,false); verify("manual source starts fresh round",f.next(19000)==0);
     }
     private void verify(String label,boolean ok){if(!ok)throw new AssertionError(label);checks++;}

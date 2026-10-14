@@ -38,8 +38,8 @@ public final class SettingsView extends FrameLayout {
         void onClose();
     }
 
-    private static final int INK = 0xFFF1F6FF, MUTED = 0xFFA8B7CF;
-    private static final int ACCENT = 0xFF79BDFF, CARD = 0xFF17253A;
+    private static final int INK = TvTheme.INK, MUTED = TvTheme.MUTED;
+    private static final int ACCENT = TvTheme.ACCENT, CARD = TvTheme.CARD;
     private static final int[] CHANNEL_HOURS = {2, 6, 24, 72, 120, 240, 720};
     private static final String[] CHANNEL_LABELS = {"2 小时", "6 小时", "24 小时", "3 天", "5 天", "10 天", "30 天"};
     private static final int[] EPG_HOURS = {2, 6, 24};
@@ -70,7 +70,7 @@ public final class SettingsView extends FrameLayout {
 
         panel = vertical();
         panel.setPadding(px(24), px(12), px(24), px(16));
-        panel.setBackground(shape(0xFC102035, 22, 0xFF354A68, 1));
+        panel.setBackground(shape(0xFA202222, 22, TvTheme.BORDER, 1));
         panel.setClickable(true);
         panel.setElevation(px(16));
         FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(900), MATCH_PARENT, Gravity.CENTER);
@@ -152,7 +152,7 @@ public final class SettingsView extends FrameLayout {
         playback.addView(label("播放超时自动切源"));
         sourceTimeout = intervalSpinner(SOURCE_LABELS);
         playback.addView(sourceTimeout, fieldParams());
-        playback.addView(note("默认 15 秒。未开始播放或持续卡顿达到所选时长，尝试下一个直播源；所有源均失败后停止。打开面板或退到后台时暂停计时。"), noteParams());
+        playback.addView(note("默认 15 秒；每轮最多等待 60 秒，每个来源尝试一次。关闭自动切源时等待 18 秒后提示。频道菜单继续计时；设置、节目单及后台暂停。"), noteParams());
         content.addView(playback, sectionParams());
 
         TextView reset = button("恢复默认设置", () -> listener.onResetDefaults());
@@ -166,7 +166,7 @@ public final class SettingsView extends FrameLayout {
         bottom.addView(draftHint, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
         saveButton = button("保存并返回", this::save);
         saveButton.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        saveButton.setBackground(shape(0xFF245B94, 12, 0xFF79BDFF, 1));
+        saveButton.setBackground(shape(0xFF2D4942, 12, TvTheme.ACCENT, 1));
         bottom.addView(saveButton, new LinearLayout.LayoutParams(px(210), MATCH_PARENT));
         panel.addView(bottom, new LinearLayout.LayoutParams(MATCH_PARENT, px(65)));
     }
@@ -245,7 +245,7 @@ public final class SettingsView extends FrameLayout {
     private LinearLayout section(String title, String summary) {
         LinearLayout card = vertical();
         card.setPadding(px(20), px(16), px(20), px(16));
-        card.setBackground(shape(CARD, 14, 0xFF2A3E58, 1));
+        card.setBackground(shape(CARD, 14, TvTheme.BORDER, 1));
         TextView heading = text(title, 22, INK);
         heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         card.addView(heading, new LinearLayout.LayoutParams(MATCH_PARENT, px(30)));
@@ -292,20 +292,20 @@ public final class SettingsView extends FrameLayout {
         EditText input = new EditText(getContext());
         input.setTextSize(TypedValue.COMPLEX_UNIT_PX, px(16));
         input.setTextColor(INK);
-        input.setHintTextColor(0xFF788EAC);
+        input.setHintTextColor(TvTheme.MUTED);
         input.setHint(hint);
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         input.setPadding(px(14), 0, px(14), 0);
         input.setSelectAllOnFocus(false);
-        input.setBackground(shape(0xFF0D192B, 10, 0xFF3B506D, 1));
+        input.setBackground(shape(0xFF191C1B, 10, TvTheme.BORDER, 1));
         prepareFocus(input, 10);
         return input;
     }
 
     private Spinner intervalSpinner(final String[] labels) {
         Spinner spinner = new Spinner(getContext(), Spinner.MODE_DROPDOWN);
-        spinner.setPopupBackgroundDrawable(shape(0xFF1B2D45, 10, 0xFF6B8DB5, 1));
+        spinner.setPopupBackgroundDrawable(shape(TvTheme.CARD, 10, TvTheme.BORDER, 1));
         spinner.setDropDownWidth(px(600));
         spinner.setPadding(px(14), 0, px(12), 0);
         spinner.setAdapter(new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, labels) {
@@ -364,24 +364,24 @@ public final class SettingsView extends FrameLayout {
     private void prepareFocus(View view, int radius) {
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
-        view.setBackground(shape(0xFF20334C, radius, 0xFF405574, 1));
+        view.setBackground(shape(TvTheme.CARD, radius, TvTheme.BORDER, 1));
         view.setOnTouchListener((target, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) target.requestFocusFromTouch();
             return false;
         });
         view.setOnFocusChangeListener((target, hasFocus) -> {
-            target.setBackground(shape(hasFocus ? 0xFF285E94 : 0xFF20334C,
-                    radius, hasFocus ? ACCENT : 0xFF405574, hasFocus ? 2 : 1));
+            target.setBackground(shape(hasFocus ? TvTheme.FOCUS : TvTheme.CARD,
+                    radius, hasFocus ? ACCENT : TvTheme.BORDER, hasFocus ? 2 : 1));
             if (hasFocus) target.requestRectangleOnScreen(new android.graphics.Rect(0, -px(8), target.getWidth(), target.getHeight() + px(8)), false);
         });
     }
 
     private StateListDrawable optionBackground() {
         StateListDrawable states = new StateListDrawable();
-        states.addState(new int[]{android.R.attr.state_pressed}, shape(0xFF285E94, 4, ACCENT, 1));
-        states.addState(new int[]{android.R.attr.state_focused}, shape(0xFF285E94, 4, ACCENT, 1));
-        states.addState(new int[]{android.R.attr.state_selected}, shape(0xFF285E94, 4, ACCENT, 1));
-        states.addState(new int[]{}, shape(0xFF1B2D45, 4, 0xFF1B2D45, 1));
+        states.addState(new int[]{android.R.attr.state_pressed}, shape(TvTheme.FOCUS, 4, ACCENT, 1));
+        states.addState(new int[]{android.R.attr.state_focused}, shape(TvTheme.FOCUS, 4, ACCENT, 1));
+        states.addState(new int[]{android.R.attr.state_selected}, shape(TvTheme.FOCUS, 4, ACCENT, 1));
+        states.addState(new int[]{}, shape(TvTheme.CARD, 4, TvTheme.CARD, 1));
         return states;
     }
 

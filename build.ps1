@@ -51,6 +51,22 @@ if ($Release) {
 }
 Run "$bt\apksigner.bat" @('verify','--verbose','--min-sdk-version',$minSdk,$output)
 Get-FileHash -LiteralPath $output -Algorithm SHA256
+if ($Release) {
+    # This Java/WebView application has no ABI-specific libraries. Keep a named
+    # ARMv7 download, but refuse this alias if native binaries are added later.
+    $archive=[IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $output).Path)
+    try {
+        if (@($archive.Entries | Where-Object { $_.FullName -like 'lib/*' -or $_.FullName -like '*.so' }).Count) {
+            throw 'Native libraries found; review ARMv7 compatibility before publishing an alias.'
+        }
+    } finally { $archive.Dispose() }
+    $armv7="dist\WebViewTV-$version-android9plus-armeabi-v7a-release.apk"
+    Copy-Item -LiteralPath $output -Destination $armv7
+    $checksums=foreach ($package in @($output,$armv7)) {
+        (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+(Split-Path $package -Leaf)
+    }
+    [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'dist\SHA256SUMS.txt'),($checksums -join "`n")+"`n",[Text.UTF8Encoding]::new($false))
+}
 
 
 } finally { Pop-Location }

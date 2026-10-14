@@ -3,7 +3,8 @@ param(
     [string]$Jdk='D:\FangteToolchains\jdk17\jdk-17.0.20.1+1',
     [string]$Adb='C:\Program Files\Netease\MuMu\nx_device\15.0\shell\adb.exe',
     [string]$Serial='emulator-5554',
-    [ValidateSet('Navigation','Fallback','Information','Playback')][string]$Suite='Navigation'
+    [ValidateSet('Navigation','Fallback','Information','Playback')][string]$Suite='Navigation',
+    [switch]$TvUi
 )
 $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot -Parent
@@ -24,7 +25,9 @@ Run "$Jdk\bin\jar.exe" @('uf',"$testBuild\unsigned.apk",'-C',"$testBuild\dex",'c
 Run "$bt\zipalign.exe" @('-f','4',"$testBuild\unsigned.apk","$testBuild\aligned.apk")
 Run "$bt\apksigner.bat" @('sign','--ks',"$repo\build\debug.keystore",'--ks-pass','pass:android','--out',"$testBuild\test.apk","$testBuild\aligned.apk")
 Run $Adb @('-s',$Serial,'install','--no-incremental','-r',"$testBuild\test.apk")
-$result=& $Adb -s $Serial shell am instrument -w -r "com.vasthread.webviewtv.navigationtest/.${Suite}Test"
+$instrumentArgs=@('-s',$Serial,'shell','am','instrument','-w','-r')
+if ($TvUi) { $instrumentArgs+=@('-e','tvUi','1') }
+$result=& $Adb @instrumentArgs "com.vasthread.webviewtv.navigationtest/.${Suite}Test"
 $instrumentExit=$LASTEXITCODE
 $result | Set-Content -LiteralPath (Join-Path $testBuild 'result.txt') -Encoding utf8
 $result

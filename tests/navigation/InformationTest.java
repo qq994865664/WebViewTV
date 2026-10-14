@@ -85,7 +85,10 @@ public final class InformationTest extends Instrumentation {
             finish(Activity.RESULT_CANCELED,result);
         }
     }
-    private boolean visible() { return info.getVisibility()==View.VISIBLE; }
+    private boolean visible() {
+        PlaybackStatusView loading=(PlaybackStatusView)field("playbackStatus");
+        return info.getVisibility()==View.VISIBLE || (loading.getVisibility()==View.VISIBLE && !(Boolean)field("playbackFailed") && SystemClock.elapsedRealtime() < (Long)field("infoUntil"));
+    }
     private void verify(String message, boolean condition) { if (!condition) throw new AssertionError(message); checks++; }
     private Object field(String name) { try { Field f=MainActivity.class.getDeclaredField(name); f.setAccessible(true); return f.get(activity); } catch(Exception e) { throw new RuntimeException(e); } }
     private void invoke(String name, Class[] types, Object... args) { try { Method m=MainActivity.class.getDeclaredMethod(name,types); m.setAccessible(true); m.invoke(activity,args); } catch(Exception e) { throw new RuntimeException(e); } }

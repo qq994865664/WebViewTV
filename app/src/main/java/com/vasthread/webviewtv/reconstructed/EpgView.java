@@ -28,7 +28,7 @@ import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
 /** Scrollable native television programme guide, backed only by real XMLTV records. */
 public final class EpgView extends FrameLayout {
-    private static final int INK = 0xFFF1F6FF, MUTED = 0xFF9DAFC9, ACCENT = 0xFF7BBEFF;
+    private static final int INK = TvTheme.INK, MUTED = TvTheme.MUTED, ACCENT = TvTheme.ACCENT;
     private final float scale;
     private final Runnable onClose;
     private final TextView title, statusLabel, closeButton, emptyLabel;
@@ -54,7 +54,7 @@ public final class EpgView extends FrameLayout {
 
         LinearLayout panel = vertical();
         panel.setPadding(px(24), px(14), px(24), px(12));
-        panel.setBackground(shape(0xFC102035, 22, 0xFF344967, 1));
+        panel.setBackground(shape(0xFA202222, 22, TvTheme.BORDER, 1));
         panel.setClickable(true);
         panel.setElevation(px(16));
         FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(960), MATCH_PARENT, Gravity.CENTER);
@@ -69,17 +69,17 @@ public final class EpgView extends FrameLayout {
         closeButton.setGravity(Gravity.CENTER);
         closeButton.setFocusable(true);
         closeButton.setClickable(true);
-        closeButton.setBackground(shape(0xFF20334C, 10, 0xFF405574, 1));
+        closeButton.setBackground(shape(TvTheme.CARD, 10, TvTheme.BORDER, 1));
         closeButton.setOnClickListener(v -> requestClose());
         closeButton.setOnFocusChangeListener((v, focused) -> closeButton.setBackground(
-                shape(focused ? 0xFF285E94 : 0xFF20334C, 10, focused ? ACCENT : 0xFF405574, focused ? 2 : 1)));
+                shape(focused ? TvTheme.FOCUS : TvTheme.CARD, 10, focused ? ACCENT : TvTheme.BORDER, focused ? 2 : 1)));
         header.addView(closeButton, new LinearLayout.LayoutParams(px(88), px(42)));
         panel.addView(header, new LinearLayout.LayoutParams(MATCH_PARENT, px(54)));
 
         statusLabel = text("", 14, MUTED);
         panel.addView(statusLabel, new LinearLayout.LayoutParams(MATCH_PARENT, px(30)));
         View separator = new View(context);
-        separator.setBackgroundColor(0xFF2F4562);
+        separator.setBackgroundColor(TvTheme.BORDER);
         panel.addView(separator, new LinearLayout.LayoutParams(MATCH_PARENT, px(1)));
 
         FrameLayout body = new FrameLayout(context);
@@ -256,9 +256,9 @@ public final class EpgView extends FrameLayout {
 
     private final class ProgrammeRow extends LinearLayout {
         final TextView dateLabel, timeLabel, nameLabel, description, badge;
-        private final GradientDrawable idle = shape(0xFF15253A, 12, 0xFF243A55, 1);
-        private final GradientDrawable current = shape(0xFF1D3D5D, 12, 0xFF557EA5, 1);
-        private final GradientDrawable focused = shape(0xFF285E94, 12, ACCENT, 2);
+        private final GradientDrawable idle = shape(TvTheme.CARD, 12, TvTheme.BORDER, 1);
+        private final GradientDrawable current = shape(0xFF2D4942, 12, TvTheme.ACCENT, 1);
+        private final GradientDrawable focused = shape(TvTheme.FOCUS, 12, ACCENT, 2);
         ProgrammeRow() {
             super(EpgView.this.getContext());
             setOrientation(HORIZONTAL);
@@ -287,8 +287,8 @@ public final class EpgView extends FrameLayout {
         }
         void style(boolean playing, boolean hasFocus) {
             setBackground(hasFocus ? focused : playing ? current : idle);
-            dateLabel.setTextColor(hasFocus ? 0xFFD6E9FC : MUTED);
-            description.setTextColor(hasFocus ? 0xFFD6E9FC : MUTED);
+            dateLabel.setTextColor(hasFocus ? TvTheme.INK : MUTED);
+            description.setTextColor(hasFocus ? TvTheme.INK : MUTED);
             badge.setTextColor(hasFocus ? INK : playing ? ACCENT : MUTED);
         }
     }

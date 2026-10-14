@@ -54,7 +54,7 @@ public final class PlaybackTest extends Instrumentation {
             ui(() -> {
                 invoke("play",new Class[]{int.class,int.class},1,-999);
                 verify("new channel immediately covers old video", cover().getVisibility()==View.VISIBLE);
-                verify("new cover has no old channel title", cover().getText().toString().equals("正在连接直播源…"));
+                verify("new cover has no old channel title", cover().getText().length()==0);
                 activity.new Bridge().reportPlaybackReady(oldToken,"decoded-frame");
                 activity.new Bridge().reportViewportFullscreenForToken(oldToken,1280,720,640,360);
             });
@@ -63,10 +63,18 @@ public final class PlaybackTest extends Instrumentation {
             ui(() -> activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(), false));
             SystemClock.sleep(150);
             ui(() -> verify("play event without a frame is not ready", !(Boolean)field("videoReady")));
+            ui(() -> {
+                SourceFailover policy=(SourceFailover)field("sourceFailover");
+                long before=policy.remaining(SystemClock.elapsedRealtime());
+                activity.new Bridge().reportPlaybackStageForToken(activity.new Bridge().getPlaybackToken());
+                verify("stage updates do not reset timeout",policy.remaining(SystemClock.elapsedRealtime())<=before);
+                verify("one connection card replaces the information banner",((View)field("playbackStatus")).getVisibility()==View.VISIBLE && ((View)field("channelInfo")).getVisibility()==View.GONE);
+            });
             SystemClock.sleep(5500);
             ui(() -> {
-                verify("title-only page reaches a finite error", (Boolean)field("playbackFailed") && cover().getText().toString().contains("没有备用源"));
+                verify("title-only page reaches a finite error", (Boolean)field("playbackFailed") && ((String)field("failureMessage")).contains("没有备用源"));
                 verify("error stops spinner", ((View)field("progress")).getVisibility()==View.GONE);
+                verify("failure shows actionable card", ((View)field("playbackStatus")).getVisibility()==View.VISIBLE && ((View)field("playbackStatus")).hasFocus());
                 for(int i=0;i<10;i++) {
                     activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(),true);
                     activity.new Bridge().reportVideoLoadingStateForToken(activity.new Bridge().getPlaybackToken(),false);
@@ -74,6 +82,10 @@ public final class PlaybackTest extends Instrumentation {
             });
             SystemClock.sleep(1100);
             ui(() -> verify("late alternating events cannot flash loading over error", (Boolean)field("playbackFailed") && ((View)field("progress")).getVisibility()==View.GONE));
+            String failedToken=activity.new Bridge().getPlaybackToken();
+            sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER);
+            SystemClock.sleep(200);
+            ui(() -> verify("remote confirm retries failed source", !failedToken.equals(activity.new Bridge().getPlaybackToken()) && !(Boolean)field("playbackFailed")));
             ui(() -> invoke("play",new Class[]{int.class,int.class},2,-999));
             awaitPlaying("container adapter finds actual media");
             verifyViewport("container video fills viewport");

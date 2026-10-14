@@ -8,7 +8,12 @@
     function sample() {
         if (stopped) return;
         var current = window.wvt_video;
-        if (current !== video) { video = current; lastTime = null; }
+        if (current !== video) {
+            video = current; lastTime = null;
+            if (video && video.tagName === 'VIDEO') {
+                try { window.main.reportPlaybackStageForToken(token); } catch (ignored) { }
+            }
+        }
         if (video && (window.wvt_isMediaAttached ? window.wvt_isMediaAttached(video) : document.documentElement.contains(video))) {
             var time = Number(video.currentTime);
             if (isFinite(time) && lastTime !== null && time > lastTime + 0.03 &&

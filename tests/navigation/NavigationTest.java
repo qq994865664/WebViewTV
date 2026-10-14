@@ -18,13 +18,15 @@ public final class NavigationTest extends Instrumentation {
     NavigationActivity activity;
     ListView categories, channels;
     int changes, checks;
+    boolean tvUi;
 
-    @Override public void onCreate(Bundle args) { super.onCreate(args); start(); }
+    @Override public void onCreate(Bundle args) { super.onCreate(args); tvUi=args!=null && "1".equals(args.getString("tvUi")); start(); }
     @Override public void onStart() {
         Bundle result = new Bundle();
         try {
             activity = (NavigationActivity) startActivitySync(new Intent(getTargetContext(), NavigationActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                .putExtra("tvUi",tvUi).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            setInTouchMode(false);
             settle();
             runOnMainSync(() -> {
                 categories = (ListView) field("categoryList");
@@ -92,6 +94,15 @@ public final class NavigationTest extends Instrumentation {
             settle();
             if (!"Group 1".equals(field("selectedCategory"))) throw new AssertionError("Playing group not selected");
             same("playing channel inside its group", new int[]{5}, new int[]{channels.getSelectedItemPosition()});
+            runOnMainSync(() -> {
+                android.widget.TextView[] tools=(android.widget.TextView[])field("tools");
+                if(tools.length!=3)throw new AssertionError("Only three primary tools expected");
+                tools[2].performClick();
+                android.widget.PopupWindow popup=(android.widget.PopupWindow)field("morePopup");
+                if(!popup.isShowing())throw new AssertionError("More actions did not open");
+                popup.dismiss();
+            });
+            checks+=2;
             int gestureChecks = new GestureChecks(this, activity).run();
             result.putString("stream", "\nPASS " + checks + " navigation assertions\nPASS " + gestureChecks + " gesture assertions\n");
             finish(Activity.RESULT_OK, result);
@@ -115,9 +126,12 @@ public final class NavigationTest extends Instrumentation {
         };
         runOnMainSync(() -> {
             int child=categories.getChildCount()-1;
-            while(child>0 && categories.getChildAt(child).getBottom()>categories.getHeight()-categories.getPaddingBottom())child--;
             View row=categories.getChildAt(child);
-            categories.setSelectionFromTop(categories.getFirstVisiblePosition()+child,row.getTop()-categories.getPaddingTop());
+            // Align the last visible row with the bottom, then move one full row.
+            // Large touch rows can leave only 1–3 pixels of the next row clipped;
+            // that tiny adjustment cannot meaningfully exercise animation frames.
+            int top=categories.getHeight()-categories.getPaddingBottom()-row.getHeight();
+            categories.setSelectionFromTop(categories.getFirstVisiblePosition()+child,top-categories.getPaddingTop());
         });
         settle();
         runOnMainSync(() -> categories.getViewTreeObserver().addOnPreDrawListener(observer));

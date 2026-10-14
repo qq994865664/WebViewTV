@@ -32,7 +32,7 @@ python .\scripts\validate-config.py
 | `epg.refreshHours` | 节目单刷新间隔，默认 6 小时，配置支持 1 至 720 小时；设置页提供 2、6、24 小时 |
 | `playback.fastSwitch` | 快速切台优化开关 |
 | `playback.rememberSource` | 是否记住每个频道上次成功播放的来源 |
-| `playback.sourceTimeoutSeconds` | 超时自动切源：`0` 关闭，或 `5`、`10`、`15`、`30` 秒；默认 `15`，旧配置省略此字段也使用 `15` |
+| `playback.sourceTimeoutSeconds` | 超时自动切源：`0` 关闭，或 `5`、`10`、`15`、`30` 秒；默认 `15`。每轮最多 60 秒，每源一次；关闭时等待 18 秒后提示手动处理。浏览频道菜单继续计时，设置、节目单及后台暂停剩余时间。旧配置省略此字段使用 `15` |
 | `channels` | 非空频道数组 |
 
 每个频道必须有非空 `name`、`group` 和 `urls`。单个来源写成 `{"url":"https://...","extra":"可选的播放器参数"}`，也支持直接使用 HTTP(S) 字符串。`extra` 是网站适配器需要的参数，应保留已知有效值。

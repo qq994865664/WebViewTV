@@ -23,9 +23,9 @@ public final class ChannelInfoView extends LinearLayout {
         setFocusable(false);
         setClickable(false);
         GradientDrawable background = new GradientDrawable();
-        background.setColor(0xCC142238);
+        background.setColor(TvTheme.PANEL);
         background.setCornerRadius(px(20));
-        background.setStroke(px(1), 0x665F7898);
+        background.setStroke(px(1), TvTheme.BORDER);
         setBackground(background);
         setElevation(px(12));
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(px(760), px(108), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
@@ -35,17 +35,17 @@ public final class ChannelInfoView extends LinearLayout {
         heading.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout title = new LinearLayout(context);
         title.setOrientation(VERTICAL);
-        title.addView(label("正在播放", 11, 0xFF78B9FF), new LayoutParams(-1, px(18)));
-        name = label("", 20, 0xFFF4F7FF);
+        title.addView(label("正在播放", 11, TvTheme.ACCENT), new LayoutParams(-1, px(18)));
+        name = label("", 20, TvTheme.INK);
         name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         title.addView(name, new LayoutParams(-1, px(28)));
         heading.addView(title, new LayoutParams(0, -1, 1));
-        source = label("", 14, 0xFF9CAEC8);
+        source = label("", 14, TvTheme.MUTED);
         source.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         heading.addView(source, new LayoutParams(px(100), -1));
         addView(heading, new LayoutParams(-1, px(50)));
-        nowProgramme = label("", 13, 0xFFC7DCF3);
-        nextProgramme = label("", 12, 0xFF9CAEC8);
+        nowProgramme = label("", 13, TvTheme.INK);
+        nextProgramme = label("", 12, TvTheme.MUTED);
         addView(nowProgramme, new LayoutParams(-1, px(18)));
         addView(nextProgramme, new LayoutParams(-1, px(18)));
         setVisibility(GONE);
@@ -62,14 +62,17 @@ public final class ChannelInfoView extends LinearLayout {
         nextProgramme.setText(next == null || next.isEmpty() ? "" : "接下来 · " + next);
     }
 
-    public void showForChannel() {
+    public void showForChannel() { showForRemaining(5000); }
+
+    public void showForRemaining(long remaining) {
+        if (remaining <= 0) return;
         removeCallbacks(dismiss);
         animate().cancel();
         setVisibility(VISIBLE);
         setAlpha(0);
         setTranslationY(px(8));
         animate().alpha(1).translationY(0).setDuration(120).start();
-        postDelayed(dismiss, 5000);
+        postDelayed(dismiss, Math.min(5000, remaining));
     }
 
     public void hide() {

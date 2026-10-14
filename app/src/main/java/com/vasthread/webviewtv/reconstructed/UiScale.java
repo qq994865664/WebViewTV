@@ -7,6 +7,14 @@ import android.util.DisplayMetrics;
 final class UiScale {
     private UiScale() { }
 
+    static boolean isTelevision(Context context) {
+        return (context.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_TYPE_MASK)
+                == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION;
+    }
+    static float text(Context context, float size, float scale) {
+        return isTelevision(context) ? size * scale : Math.max(size * scale, size * context.getResources().getDisplayMetrics().scaledDensity * .8f);
+    }
+
     static float landscape(Context context, int referenceWidth) {
         DisplayMetrics metrics = context.getResources().getDisplayMetrics();
         int width = Math.max(metrics.widthPixels, metrics.heightPixels);
