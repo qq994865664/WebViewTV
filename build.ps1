@@ -19,6 +19,8 @@ try {
 $bt=Join-Path $Sdk 'build-tools\36.0.0'; $android=Join-Path $Sdk 'platforms\android-36\android.jar'; $env:JAVA_HOME=$Jdk; $env:PATH="$Jdk\bin;$env:PATH"
 function Run([string]$exe,[string[]]$arguments){ & $exe @arguments; if($LASTEXITCODE -ne 0){throw "$exe failed: $LASTEXITCODE"} }
 New-Item -ItemType Directory -Force build\classes,build\dex,dist | Out-Null
+$classesDir=Join-Path $PSScriptRoot ('build\classes-'+[Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Force $classesDir | Out-Null
 [xml]$manifest=Get-Content -LiteralPath 'app\src\main\AndroidManifest.xml' -Raw
 $androidNs='http://schemas.android.com/apk/res/android'
 $minSdk=$manifest.manifest.'uses-sdk'.GetAttribute('minSdkVersion',$androidNs)
@@ -32,8 +34,8 @@ Run "$bt\aapt2.exe" @('link','-o','build\unsigned.apk','-I',$android,'--manifest
 Run "$Jdk\bin\jar.exe" @('uf','build\unsigned.apk','-C','app\src\main','assets')
 & (Join-Path $PSScriptRoot 'verify-assets.ps1') -Apk 'build\unsigned.apk'
 $javaFiles=@(Get-ChildItem app\src\main\java -Filter *.java -Recurse | ForEach-Object FullName)
-Run "$Jdk\bin\javac.exe" (@('-encoding','UTF-8','-source','8','-target','8','-classpath',$android,'-d','build\classes')+$javaFiles)
-$classFiles=@(Get-ChildItem build\classes -Filter *.class -Recurse | ForEach-Object FullName)
+Run "$Jdk\bin\javac.exe" (@('-encoding','UTF-8','-source','8','-target','8','-classpath',$android,'-d',$classesDir)+$javaFiles)
+$classFiles=@(Get-ChildItem $classesDir -Filter *.class -Recurse | ForEach-Object FullName)
 $dexMode=if($Release){'--release'}else{'--debug'}
 Run "$bt\d8.bat" (@($dexMode,'--lib',$android,'--min-api',$minSdk,'--output','build\dex')+$classFiles)
 Push-Location build\dex

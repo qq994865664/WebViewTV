@@ -15,6 +15,16 @@
             }
         }
         if (video && (window.wvt_isMediaAttached ? window.wvt_isMediaAttached(video) : document.documentElement.contains(video))) {
+            var evidence = 1;
+            if (video.readyState >= 1 && video.videoWidth > 0) evidence = 2;
+            if (video.readyState >= 2 && video.videoWidth > 0 && !video.error) evidence = 3;
+            try {
+                var buffered = video.buffered;
+                for (var i=0; buffered && i<buffered.length; i++) {
+                    if (buffered.start(i)<=video.currentTime && buffered.end(i)-video.currentTime>=0.5 && evidence>=3) evidence=4;
+                }
+                window.main.reportMediaStage(token, evidence);
+            } catch (ignored) { }
             var time = Number(video.currentTime);
             if (isFinite(time) && lastTime !== null && time > lastTime + 0.03 &&
                     !video.paused && !video.ended && !video.error && video.readyState >= 2 &&

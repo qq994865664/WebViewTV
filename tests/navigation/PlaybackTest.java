@@ -49,6 +49,8 @@ public final class PlaybackTest extends Instrumentation {
             getTargetContext().getSharedPreferences("tv",0).edit().clear().putBoolean("githubChannelSourceMigratedV1",true).commit();
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             awaitPlaying("zoomed video");
+            SystemClock.sleep(450);
+            ui(() -> verify("real first frame schedules information", ((View)field("channelInfo")).getVisibility()==View.VISIBLE));
             verifyViewport("zoomed ancestors fit screen");
             String oldToken=activity.new Bridge().getPlaybackToken();
             ui(() -> {

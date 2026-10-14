@@ -52,6 +52,10 @@ public final class NavigationTest extends Instrumentation {
             // Return at bottom/top boundaries must also keep pixel offsets.
             runOnMainSync(() -> categories.setSelection(categories.getCount() - 1));
             settle(); roundTrip("last group", false);
+            int[] groupBeforeTools=snapshot(categories);
+            key(KeyEvent.KEYCODE_DPAD_DOWN);key(KeyEvent.KEYCODE_DPAD_UP);
+            assertFocus(categories);
+            same("toolbar returns to original group",groupBeforeTools,snapshot(categories));
             runOnMainSync(() -> categories.setSelection(1));
             settle(); roundTrip("first group", false);
             // Empty Favorites transfers to the toolbar, then back to the same group.
@@ -96,8 +100,8 @@ public final class NavigationTest extends Instrumentation {
             same("playing channel inside its group", new int[]{5}, new int[]{channels.getSelectedItemPosition()});
             runOnMainSync(() -> {
                 android.widget.TextView[] tools=(android.widget.TextView[])field("tools");
-                if(tools.length!=3)throw new AssertionError("Only three primary tools expected");
-                tools[2].performClick();
+                if(tools.length!=4 || !tools[0].getText().toString().equals("设置"))throw new AssertionError("Settings must lead four tools");
+                tools[3].performClick();
                 android.widget.PopupWindow popup=(android.widget.PopupWindow)field("morePopup");
                 if(!popup.isShowing())throw new AssertionError("More actions did not open");
                 popup.dismiss();

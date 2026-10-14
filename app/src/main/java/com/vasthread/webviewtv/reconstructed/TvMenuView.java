@@ -36,6 +36,7 @@ public final class TvMenuView extends FrameLayout {
         void onPip();
         void onSettings();
         void onEpg();
+        void onSourceDetails();
         void onClose();
     }
     private static final int INK = TvTheme.INK, MUTED = TvTheme.MUTED, ACCENT = TvTheme.ACCENT;
@@ -51,14 +52,14 @@ public final class TvMenuView extends FrameLayout {
     private final ListView categoryList, channelList;
     private final CategoryAdapter categoryAdapter;
     private final ChannelAdapter channelAdapter;
-    private final TextView sectionLabel, emptyLabel, closeButton, settingsButton;
+    private final TextView sectionLabel, emptyLabel;
     private Function<JSONObject,String> programmeProvider;
-    private final TextView[] tools = new TextView[3];
+    private final TextView[] tools = new TextView[4];
     private android.widget.PopupWindow morePopup;
     private final int groupWidth, rowHeight, touchHeight;
     private String selectedCategory = FAVORITES;
     private int currentIndex = -1, currentSource, currentSourceCount, favoriteCount;
-    private boolean opened, positioningCategories;
+    private boolean opened, positioningCategories, toolsFromCategories;
     private int focusRequest;
     private ValueAnimator categoryScroll;
     private int pendingCategoryPosition = -1;
@@ -96,33 +97,6 @@ public final class TvMenuView extends FrameLayout {
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(panelWidth, MATCH_PARENT, Gravity.LEFT);
         panelParams.setMargins(px(24), px(24), 0, px(24));
         addView(panel, panelParams);
-
-        LinearLayout header = horizontal();
-        header.setPadding(px(12), 0, px(8), 0);
-        ImageView appIcon = new ImageView(context);
-        appIcon.setImageDrawable(context.getApplicationInfo().loadIcon(context.getPackageManager()));
-        appIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        appIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(px(38), px(38));
-        iconParams.setMargins(0, 0, px(8), 0);
-        header.addView(appIcon, iconParams);
-        LinearLayout branding = vertical();
-        branding.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = text("频道", 22, INK);
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        branding.addView(title, new LinearLayout.LayoutParams(MATCH_PARENT, -2));
-        branding.addView(text(channels.size() + " 个频道", 12, MUTED), new LinearLayout.LayoutParams(MATCH_PARENT, px(20)));
-        header.addView(branding, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
-        settingsButton = action("设置", 15, () -> { if (listener != null) listener.onSettings(); });
-        settingsButton.setContentDescription("打开设置");
-        LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(Math.max(px(82), touchHeight), touchHeight);
-        settingsParams.setMargins(px(6), 0, px(8), 0);
-        header.addView(settingsButton, settingsParams);
-        closeButton = action("×", 26, this::requestClose);
-        closeButton.setContentDescription("关闭频道菜单");
-        header.addView(closeButton, new LinearLayout.LayoutParams(touchHeight, touchHeight));
-        panel.addView(header, new LinearLayout.LayoutParams(MATCH_PARENT, Math.max(px(76), touchHeight + px(12))));
-        addDivider(panel);
 
         LinearLayout section = horizontal();
         section.setPadding(px(10), 0, px(10), 0);
@@ -163,9 +137,10 @@ public final class TvMenuView extends FrameLayout {
 
         LinearLayout toolBar = horizontal();
         toolBar.setPadding(px(6), 0, px(6), 0);
-        tools[0] = action("☆ 收藏", 15, () -> { if (listener != null) listener.onFavorite(); });
-        tools[1] = action("节目单", 15, () -> { if (listener != null) listener.onEpg(); });
-        tools[2] = action("更多 ···", 15, this::showMore);
+        tools[0] = action("设置", 15, () -> { if (listener != null) listener.onSettings(); });
+        tools[1] = action("☆ 收藏", 15, () -> { if (listener != null) listener.onFavorite(); });
+        tools[2] = action("节目单", 15, () -> { if (listener != null) listener.onEpg(); });
+        tools[3] = action("更多 ···", 15, this::showMore);
         for (TextView tool : tools) {
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, MATCH_PARENT, 1);
             params.setMargins(px(4), px(2), px(4), px(2));
@@ -203,24 +178,11 @@ public final class TvMenuView extends FrameLayout {
         channelList.setOnFocusChangeListener((view, focused) -> paintFocus(channelList));
         categoryList.setOnKeyListener((view, key, event) -> handleListKey(categoryList, key, event));
         channelList.setOnKeyListener((view, key, event) -> handleListKey(channelList, key, event));
-        closeButton.setOnKeyListener((view, key, event) -> {
-            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-            if (key == KeyEvent.KEYCODE_DPAD_DOWN) { focusChannels(); return true; }
-            if (key == KeyEvent.KEYCODE_DPAD_LEFT) { settingsButton.requestFocus(); return true; }
-            return false;
-        });
-        settingsButton.setOnKeyListener((view, key, event) -> {
-            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-            if (key == KeyEvent.KEYCODE_DPAD_DOWN) { focusChannels(); return true; }
-            if (key == KeyEvent.KEYCODE_DPAD_LEFT) { focusCategories(); return true; }
-            if (key == KeyEvent.KEYCODE_DPAD_RIGHT) { closeButton.requestFocus(); return true; }
-            return false;
-        });
         for (int i = 0; i < tools.length; i++) {
             final int position = i;
             tools[i].setOnKeyListener((view, key, event) -> {
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
-                if (key == KeyEvent.KEYCODE_DPAD_UP) { focusChannels(); return true; }
+                if (key == KeyEvent.KEYCODE_DPAD_UP) { if(toolsFromCategories)focusCategories();else focusChannels(); return true; }
                 if (key == KeyEvent.KEYCODE_DPAD_LEFT) {
                     if (position > 0) tools[position - 1].requestFocus(); else focusCategories();
                     return true;
@@ -251,9 +213,9 @@ public final class TvMenuView extends FrameLayout {
         }
         if (currentIndex >= 0) {
             JSONObject current = channels.get(currentIndex);
-            tools[0].setText(favorites.contains(current.optString("name")) ? "★ 已收藏" : "☆ 收藏");
+            tools[1].setText(favorites.contains(current.optString("name")) ? "★ 已收藏" : "☆ 收藏");
         } else {
-            tools[0].setText("☆ 收藏");
+            tools[1].setText("☆ 收藏");
         }
         // Rebind only the visible recycled rows, never rebuild a list on a directional key.
         for (int i = 0; i < channelList.getChildCount(); i++) {
@@ -373,6 +335,7 @@ public final class TvMenuView extends FrameLayout {
         if (visibleChannels.isEmpty()) {
             focusRequest++;
             positioningCategories = false;
+            toolsFromCategories = true;
             tools[0].requestFocus();
             return;
         }
@@ -443,14 +406,14 @@ public final class TvMenuView extends FrameLayout {
             return true;
         }
         if (key == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            if (inCategories) focusChannels(); else tools[0].requestFocus();
+            if (inCategories) focusChannels(); else { toolsFromCategories=false; tools[0].requestFocus(); }
             return true;
         }
         if (key == KeyEvent.KEYCODE_DPAD_UP && list.getSelectedItemPosition() <= 0) {
-            closeButton.requestFocus();
             return true;
         }
         if (key == KeyEvent.KEYCODE_DPAD_DOWN && list.getSelectedItemPosition() == list.getCount() - 1) {
+            toolsFromCategories=inCategories;
             tools[0].requestFocus();
             return true;
         }
@@ -528,13 +491,14 @@ public final class TvMenuView extends FrameLayout {
         content.addView(first, new LinearLayout.LayoutParams(-1, touchHeight));
         content.addView(action("刷新当前频道", 17, () -> { morePopup.dismiss(); if (listener != null) listener.onRefresh(); }), new LinearLayout.LayoutParams(-1, touchHeight));
         content.addView(action("画中画", 17, () -> { morePopup.dismiss(); if (listener != null) listener.onPip(); }), new LinearLayout.LayoutParams(-1, touchHeight));
-        morePopup = new android.widget.PopupWindow(content, px(290), touchHeight * 3 + px(20), true);
+        content.addView(action("来源详情", 17, () -> { morePopup.dismiss(); if (listener != null) listener.onSourceDetails(); }), new LinearLayout.LayoutParams(-1, touchHeight));
+        morePopup = new android.widget.PopupWindow(content, px(290), touchHeight * 4 + px(20), true);
         morePopup.setBackgroundDrawable(shape(TvTheme.PANEL, 16, TvTheme.BORDER, 1));
         morePopup.setOutsideTouchable(true);
         morePopup.setElevation(px(12));
-        morePopup.setOnDismissListener(() -> { if (opened) tools[2].requestFocus(); });
-        int[] point = new int[2]; tools[2].getLocationOnScreen(point);
-        morePopup.showAtLocation(this, Gravity.TOP | Gravity.LEFT, point[0] + tools[2].getWidth() - px(290), point[1] - touchHeight * 3 - px(26));
+        morePopup.setOnDismissListener(() -> { if (opened) tools[3].requestFocus(); });
+        int[] point = new int[2]; tools[3].getLocationOnScreen(point);
+        morePopup.showAtLocation(this, Gravity.TOP | Gravity.LEFT, point[0] + tools[3].getWidth() - px(290), Math.max(px(12), point[1] - touchHeight * 4 - px(26)));
         first.requestFocus();
     }
 
@@ -581,7 +545,7 @@ public final class TvMenuView extends FrameLayout {
         view.setOnClickListener(v -> runnable.run());
         view.setOnFocusChangeListener((v, focused) -> {
             view.setBackground(shape(focused ? TvTheme.FOCUS : TvTheme.CARD, 10,
-                    focused ? TvTheme.INK : TvTheme.BORDER, focused ? 2 : 1));
+                    focused ? TvTheme.ACCENT : TvTheme.BORDER, 1));
             view.animate().cancel();
             view.setScaleX(1); view.setScaleY(1);
         });
@@ -625,8 +589,8 @@ public final class TvMenuView extends FrameLayout {
     private final class GuideRow extends LinearLayout {
         final TextView number, name, detail, badge;
         final GradientDrawable idle = shape(0x00000000, 10, 0, 0);
-        final GradientDrawable active = shape(0x332D6D62, 10, 0x66505B57, 1);
-        final GradientDrawable focused = shape(TvTheme.FOCUS, 10, TvTheme.INK, 2);
+        final GradientDrawable active = shape(0x33274F7C, 10, 0x6635435C, 1);
+        final GradientDrawable focused = shape(TvTheme.FOCUS, 10, TvTheme.ACCENT, 1);
         private boolean activeRow, focusedRow;
 
         GuideRow(boolean category) {
@@ -671,6 +635,9 @@ public final class TvMenuView extends FrameLayout {
 
         private void updateStyle() {
             setBackground(focusedRow ? focused : activeRow ? active : idle);
+            name.setEllipsize(focusedRow ? TextUtils.TruncateAt.MARQUEE : TextUtils.TruncateAt.END);
+            name.setMarqueeRepeatLimit(-1);
+            name.setSelected(focusedRow);
             number.setTextColor(focusedRow ? INK : activeRow ? ACCENT : MUTED);
             detail.setTextColor(MUTED);
             detail.setVisibility(focusedRow ? VISIBLE : GONE);

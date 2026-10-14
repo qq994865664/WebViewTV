@@ -54,7 +54,22 @@ public class MainActivity extends Activity {
     private TextView playbackCover;
     private PlaybackStatusView playbackStatus;
     private String loadingPhase = "正在连接频道页面", failureMessage = "", sourceTransition = "";
-    private long infoUntil;
+    private boolean infoPending, startupRecorded;
+    private String sourceUrl = "", historyKey = "";
+    private final PlaybackEstimate startupEstimate = new PlaybackEstimate();
+    private final Runnable showReadyInfo = this::showReadyInformation;
+    private void showReadyInformation() {
+        if (!destroyed && videoReady && !playbackFailed && playbackCover.getVisibility()==View.GONE
+                && !playbackPaused && hasWindowFocus() && !isInPictureInPictureMode()
+                && !menu.isOpen() && menu.getVisibility()!=View.VISIBLE && !settingsView.isOpen() && !epgView.isOpen())
+            channelInfo.showForChannel();
+    }
+    private void cancelInformation() { infoPending=false; handler.removeCallbacks(showReadyInfo); if(channelInfo!=null)channelInfo.hide(); }
+    private String sourceDomain() {
+        String host=Uri.parse(sourceUrl).getHost();
+        return host==null || host.isEmpty()?"未知来源":host.toLowerCase(Locale.ROOT);
+    }
+
     private boolean playbackFailed, pageCommitted, revealPending, navigationPending;
     private String pendingNavigationUrl = "";
     private final Runnable delayedBuffering = () -> {
@@ -283,7 +298,10 @@ public class MainActivity extends Activity {
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
-            @Override public void onProgressChanged(WebView view, int value) { if (value >= (fastSwitch ? 30 : 80)) inject(); }
+            @Override public void onProgressChanged(WebView view, int value) {
+                if (!navigationPending && !playbackFailed) startupEstimate.page(value);
+                if (value >= (fastSwitch ? 30 : 80)) inject();
+            }
             @Override public boolean onConsoleMessage(ConsoleMessage message) {
                 android.util.Log.d(TAG, message.messageLevel() + " " + message.message());
                 return true;
@@ -379,6 +397,10 @@ public class MainActivity extends Activity {
             public void onSource() { switchSource(1); }
             public void onFavorite() { favorite(); }
             public void onRefresh() { refresh(); }
+            public void onSourceDetails() {
+                new AlertDialog.Builder(MainActivity.this).setTitle("来源网站 · " + sourceDomain())
+                        .setMessage(sourceUrl).setPositiveButton("关闭",null).show();
+            }
             public void onPip() { pip(); }
             public void onSettings() { openSettings(); }
             public void onEpg() { openProgramme(); }
@@ -394,7 +416,7 @@ public class MainActivity extends Activity {
     private void syncMenu() {
         menu.setCurrentChannel(channelIndex, sourceIndex, sourceCount, favorites);
         if (channelInfo != null && !channels.isEmpty())
-            channelInfo.setChannel(channels.get(channelIndex).optString("name"), sourceIndex, sourceCount);
+            channelInfo.setChannel(channels.get(channelIndex).optString("name"), sourceIndex, sourceCount, sourceDomain());
         updateProgramme();
     }
 
@@ -438,6 +460,8 @@ public class MainActivity extends Activity {
         sourceIndex = Math.floorMod(source, sourceCount);
         JSONObject item = urls.optJSONObject(sourceIndex);
         String url = item == null ? urls.optString(sourceIndex) : item.optString("url");
+        sourceUrl = url;
+        historyKey = "startup:" + java.util.UUID.nameUUIDFromBytes(url.getBytes(StandardCharsets.UTF_8));
         pendingNavigationUrl = url;
         web.stopLoading();
         extra = item == null ? "" : item.optString("extra", "");
@@ -460,11 +484,12 @@ public class MainActivity extends Activity {
         prefs.edit().putInt("last", channelIndex).putString("lastChannelId", channelKey(channel)).apply();
         syncMenu();
         if (!retry) showMenu(false);
+        if (!retry && !isInPictureInPictureMode() && !playbackPaused) infoPending = true;
         if (changedChannel) {
             menu.closeImmediately();
             hud.setVisibility(View.GONE);
             if (!isInPictureInPictureMode() && !playbackPaused && !settingsView.isOpen() && !epgView.isOpen())
-                infoUntil = SystemClock.elapsedRealtime() + 5000;
+                infoPending = true;
         }
         sourceTransition = retry ? "上一来源超时 · " : "";
         beginLoading(retry);
@@ -504,6 +529,9 @@ public class MainActivity extends Activity {
         playbackCover.setVisibility(View.VISIBLE);
         playbackCover.bringToFront();
         handler.removeCallbacks(delayedBuffering);
+        handler.removeCallbacks(showReadyInfo);
+        startupRecorded=false;
+        startupEstimate.start(SystemClock.elapsedRealtime(), PlaybackEstimate.median(prefs.getString(historyKey,"")));
         switchStarted = SystemClock.elapsedRealtime();
         playbackToken++;
         buffering = true;
@@ -528,9 +556,9 @@ public class MainActivity extends Activity {
         long now = SystemClock.elapsedRealtime();
         if (!hasWindowFocus() || menu == null || settingsView.isOpen() || epgView.isOpen()
                 || channelSwipeAnimation.isTurning()) {
-            sourceFailover.pause(now);
+            sourceFailover.pause(now); startupEstimate.pause(now);
         } else {
-            sourceFailover.resume(now);
+            sourceFailover.resume(now); startupEstimate.resume(now);
             int next = sourceFailover.next(now);
             if (next >= 0) {
                 resetPlaybackSwipe();
@@ -562,12 +590,12 @@ public class MainActivity extends Activity {
         if (playbackFailed) {
             boolean focus = playbackStatus.getVisibility() != View.VISIBLE;
             channelInfo.hide();
-            playbackStatus.failure(name, failureMessage, sourceCount, sourceFailover.attemptedCount(), focus);
+            playbackStatus.failure(name, sourceDomain(), sourceIndex, failureMessage, sourceCount, focus);
         } else if (playbackCover.getVisibility() == View.VISIBLE || (buffering && sourceFailover.elapsed(SystemClock.elapsedRealtime()) >= 1000)) {
             channelInfo.hide();
             long now = SystemClock.elapsedRealtime();
-            playbackStatus.loading(name, videoReady && playbackCover.getVisibility() != View.VISIBLE ? "正在缓冲直播画面" : sourceTransition + loadingPhase,
-                    sourceIndex, sourceCount, sourceFailover.elapsed(now), sourceFailover.remaining(now), sourceFailover.sourceBudget(), sourceFailover.willSwitch(now), now < infoUntil, videoReady && playbackCover.getVisibility() != View.VISIBLE);
+            playbackStatus.loading(name, sourceDomain(), sourceIndex, sourceCount, startupEstimate.value(now),
+                    sourceFailover.remaining(now), sourceFailover.willSwitch(now), videoReady && playbackCover.getVisibility() != View.VISIBLE);
         } else {
             playbackStatus.hide();
         }
@@ -629,14 +657,27 @@ public class MainActivity extends Activity {
                 if (videoReady && !playbackFailed && (viewportFullscreen || fullscreen != null)) {
                     playbackCover.setVisibility(View.GONE);
                     playbackStatus.hide();
-                    if (!menu.isOpen() && !settingsView.isOpen() && !epgView.isOpen() && hasWindowFocus() && !isInPictureInPictureMode())
-                        channelInfo.showForRemaining(infoUntil - SystemClock.elapsedRealtime());
+                    onPlaybackVisible();
                 }
             }
         });
     }
 
     private void switchSource(int step) { play(channelIndex, sourceIndex + step); }
+
+    private void onPlaybackVisible() {
+        // Fullscreen may become ready after the first-frame callback. Complete
+        // that handoff here so the watchdog cannot hide the new information card.
+        buffering=false;
+        handler.removeCallbacks(delayedBuffering);
+        sourceFailover.progress(SystemClock.elapsedRealtime());
+        if (!startupRecorded) {
+            startupRecorded=true;
+            String history=prefs.getString(historyKey, "");
+            prefs.edit().putString(historyKey, PlaybackEstimate.remember(history,startupEstimate.elapsed(SystemClock.elapsedRealtime()))).apply();
+        }
+        if (infoPending) { infoPending=false; handler.postDelayed(showReadyInfo,200); }
+    }
 
     private void swipePlayback(boolean source, int step) {
         if (!canSwipePlayback()) { resetPlaybackSwipe(); return; }
@@ -659,7 +700,7 @@ public class MainActivity extends Activity {
         if (playerControls != null) playerControls.cancelGesture();
         if (channelSwipeAnimation != null) channelSwipeAnimation.reset();
     }
-    private void refresh() { sourceTransition = ""; showMenu(false); hideFullscreen(); pendingNavigationUrl = web.getUrl(); web.stopLoading(); web.scrollTo(0, 0); beginLoading(); web.reload(); }
+    private void refresh() { sourceTransition = ""; showMenu(false); infoPending=true; hideFullscreen(); pendingNavigationUrl = web.getUrl(); web.stopLoading(); web.scrollTo(0, 0); beginLoading(); web.reload(); }
 
     private void inject() {
         if (destroyed || isFinishing() || navigationPending || "about:blank".equals(web.getUrl())) return;
@@ -710,7 +751,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMenu(boolean show) {
-        if (show) { infoUntil = 0; playbackStatus.hide(); channelInfo.hide(); resetPlaybackSwipe(); syncMenu(); hud.setVisibility(View.GONE); menu.open(); menu.bringToFront(); }
+        if (show) { cancelInformation(); playbackStatus.hide(); channelInfo.hide(); resetPlaybackSwipe(); syncMenu(); hud.setVisibility(View.GONE); menu.open(); menu.bringToFront(); }
         else { menu.close(); playerControls.requestFocus(); immersive(); updatePlaybackStatus(); }
     }
 
@@ -767,19 +808,19 @@ public class MainActivity extends Activity {
 
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused);
-        if (focused) { immersive(); updatePlaybackStatus(); } else { infoUntil = 0; resetPlaybackSwipe(); if (channelInfo != null) channelInfo.hide(); if (playbackStatus != null) playbackStatus.hide(); sourceFailover.pause(SystemClock.elapsedRealtime()); }
+        if (focused) { immersive(); updatePlaybackStatus(); } else { cancelInformation(); resetPlaybackSwipe(); if (channelInfo != null) channelInfo.hide(); if (playbackStatus != null) playbackStatus.hide(); sourceFailover.pause(SystemClock.elapsedRealtime()); startupEstimate.pause(SystemClock.elapsedRealtime()); }
     }
     @Override public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); resetPlaybackSwipe(); immersive(); }
     @Override protected void onPause() {
         if (channelInfo != null) channelInfo.hide();
         resetPlaybackSwipe(); super.onPause();
         playbackPaused = !isInPictureInPictureMode();
-        if (playbackPaused) { infoUntil = 0; playbackStatus.hide(); sourceFailover.pause(SystemClock.elapsedRealtime()); handler.removeCallbacks(sourceWatchdog); if (web != null) web.onPause(); }
+        if (playbackPaused) { cancelInformation(); playbackStatus.hide(); sourceFailover.pause(SystemClock.elapsedRealtime()); startupEstimate.pause(SystemClock.elapsedRealtime()); handler.removeCallbacks(sourceWatchdog); if (web != null) web.onPause(); }
     }
     @Override protected void onResume() {
         super.onResume(); playbackPaused = false;
         if (web != null) web.onResume();
-        sourceFailover.resume(SystemClock.elapsedRealtime()); armSourceWatchdog();
+        sourceFailover.resume(SystemClock.elapsedRealtime()); startupEstimate.resume(SystemClock.elapsedRealtime()); armSourceWatchdog();
     }
     @Override public void onBackPressed() { handleBack(); }
     @Override protected void onDestroy() {
@@ -817,7 +858,7 @@ public class MainActivity extends Activity {
                 + "\n" + (epgStatus.isEmpty() ? epgRepository.getStatus() : epgStatus);
     }
     private void openSettings() {
-        infoUntil=0; playbackStatus.hide();
+        cancelInformation(); playbackStatus.hide();
         channelInfo.hide();
         handler.removeCallbacks(selectNumber); digits = "";
         showMenu(false);
@@ -944,7 +985,7 @@ public class MainActivity extends Activity {
         channelInfo.setProgramme(current, next);
     }
     private void openProgramme() {
-        infoUntil=0; playbackStatus.hide();
+        cancelInformation(); playbackStatus.hide();
         channelInfo.hide();
         if (channels.isEmpty()) return;
         showMenu(false);
@@ -1103,6 +1144,12 @@ public class MainActivity extends Activity {
     }
 
     public class Bridge {
+        @JavascriptInterface public void reportMediaStage(String token,int stage) {
+            runOnUiThread(() -> {
+                if(destroyed || playbackFailed || !Objects.equals(token,getPlaybackToken()))return;
+                startupEstimate.media(stage,SystemClock.elapsedRealtime());
+            });
+        }
         @JavascriptInterface public void reportPlaybackStageForToken(String token) {
             runOnUiThread(() -> {
                 if (destroyed || playbackFailed || !Objects.equals(token, getPlaybackToken()) || videoReady) return;

@@ -1,16 +1,16 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.8**（versionCode 16），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.9**（versionCode 17），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.8-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.9-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
-手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，右上角进入设置；系统返回键先关闭面板，再显示退出确认。
+手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，菜单底部进入设置；系统返回键先关闭面板，再显示退出确认。
 
-**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.8/WebViewTV-0.4.8-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.8 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
+**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.9/WebViewTV-0.4.9-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.9 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
 
-0.4.8 使用暖炭灰半透明菜单、青绿色播放标记和白色遥控焦点，菜单占约半屏，手机使用更大的文字和触摸行。底部保留收藏、节目单、更多三个入口。加载卡显示实际阶段、已等待时间和切源倒计时，时间条表示等待预算而非下载百分比；失败后提供重试、下一个来源及选台按钮。每轮最多等待 60 秒，频道菜单打开时继续恢复，设置、节目单和后台暂停剩余计时。详见 [0.4.8 发布说明](docs/release-048.md)。
+0.4.9 恢复深蓝配色并缩小手机菜单字体，移除顶部标题与关闭按钮，底部为设置、收藏、节目单、更多。加载卡显示来源域名、基于实际阶段和历史起播耗时估算的百分比，以及独立遵循设置的切源倒计时。频道实际出画后完整显示五秒信息，不再被加载时间挤占。详见 [0.4.9 发布说明](docs/release-049.md)。
 
 0.4.7 修复换台残留旧画面、分组跨屏跳动、加载提示闪烁和部分网站全屏不完整。杭州生活增加 HLS 兼容恢复，浙江国际修复零高度播放器，山西三个频道优先使用已验证的官方移动端来源。广东 4K 测试时官方网页未提供播放地址，保留频道并在超时后显示错误。升级后可进入「设置 → 立即更新频道列表」应用最新来源顺序。详见 [0.4.7 发布说明](docs/release-047.md)。
 
@@ -67,9 +67,9 @@ python .\scripts\validate-config.py
 | 频道菜单 | 上下选择，左右切换分组、频道和工具区域，确定播放 |
 | 频道菜单 | 选择频道、切源或刷新后自动收起并全屏播放 |
 | 返回键 | 面板中先关闭面板；播放画面显示退出确认 |
-| 菜单底部 | 收藏、节目单、更多；更多内提供切源、刷新和画中画 |
+| 菜单底部 | 设置、收藏、节目单、更多；更多内提供切源、刷新、画中画和来源详情 |
 | 播放失败 | 重试、下一个来源（多源频道）、选择频道；支持触摸和遥控确定 |
-| 菜单右上角 | 设置 |
+| 菜单底部第一栏 | 设置 |
 
 ## 节目单与播放
 

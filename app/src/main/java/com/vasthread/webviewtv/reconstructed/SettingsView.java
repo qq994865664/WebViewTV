@@ -70,7 +70,7 @@ public final class SettingsView extends FrameLayout {
 
         panel = vertical();
         panel.setPadding(px(24), px(12), px(24), px(16));
-        panel.setBackground(shape(0xFA202222, 22, TvTheme.BORDER, 1));
+        panel.setBackground(shape(0xFA182438, 22, TvTheme.BORDER, 1));
         panel.setClickable(true);
         panel.setElevation(px(16));
         FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(900), MATCH_PARENT, Gravity.CENTER);
@@ -166,7 +166,7 @@ public final class SettingsView extends FrameLayout {
         bottom.addView(draftHint, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
         saveButton = button("保存并返回", this::save);
         saveButton.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        saveButton.setBackground(shape(0xFF2D4942, 12, TvTheme.ACCENT, 1));
+        saveButton.setBackground(shape(TvTheme.FOCUS, 12, TvTheme.ACCENT, 1));
         bottom.addView(saveButton, new LinearLayout.LayoutParams(px(210), MATCH_PARENT));
         panel.addView(bottom, new LinearLayout.LayoutParams(MATCH_PARENT, px(65)));
     }
@@ -298,7 +298,7 @@ public final class SettingsView extends FrameLayout {
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         input.setPadding(px(14), 0, px(14), 0);
         input.setSelectAllOnFocus(false);
-        input.setBackground(shape(0xFF191C1B, 10, TvTheme.BORDER, 1));
+        input.setBackground(shape(0xFF111C2D, 10, TvTheme.BORDER, 1));
         prepareFocus(input, 10);
         return input;
     }

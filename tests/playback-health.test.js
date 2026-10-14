@@ -2,9 +2,9 @@ const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert');
 const code = fs.readFileSync(require('path').join(__dirname, '../app/src/main/assets/js/playback_health.js'), 'utf8');
-let timer, pagehide, reports = [], checks = 0;
+let timer, pagehide, reports = [], stages = [], checks = 0;
 const video = { currentTime: 0, paused: false, ended: false, error: null, readyState: 4, videoWidth: 1920, videoHeight: 1080, attached: true };
-const window = { wvt_video: video, __wvtPlaybackToken: '7:2', main: { reportPlaybackProgress: t => reports.push(t) },
+const window = { wvt_video: video, __wvtPlaybackToken: '7:2', main: { reportPlaybackProgress: t => reports.push(t), reportMediaStage: (t,s) => stages.push([t,s]) },
     setTimeout: fn => { timer = fn; return 1; }, clearTimeout: () => { timer = null; }, addEventListener: (name, fn) => { pagehide = fn; } };
 vm.runInNewContext(code, { window, document: { documentElement: { contains: v => v.attached } } });
 function expect(label, count) { assert.equal(reports.length, count, label); checks++; }
@@ -23,5 +23,11 @@ video.attached = true; timer(); expect('reattachment requires new progress', 2);
 video.currentTime = 2; timer(); expect('reattached playback advances', 3);
 window.wvt_video = {...video, currentTime: 30}; timer(); expect('replacement video starts its own baseline', 3);
 window.wvt_video.currentTime = 31; timer(); expect('replacement progress reports', 4);
+assert.ok(stages.some(x=>x[1]===2),'metadata stage is observable');checks++;
+assert.ok(stages.some(x=>x[1]===3),'decoded data stage is observable');checks++;
+window.wvt_video.buffered={length:1,start:()=>30,end:()=>32};timer();
+assert.deepEqual(stages.at(-1),['7:2',4],'buffer covering current position advances stage');checks++;
+window.wvt_video.buffered={length:1,start:()=>40,end:()=>45};timer();
+assert.equal(stages.at(-1)[1],3,'unrelated future range is not startup buffer');checks++;
 pagehide(); assert.equal(timer, null); checks++;
 console.log(`PASS ${checks} playback health assertions`);

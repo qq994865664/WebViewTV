@@ -54,7 +54,7 @@ public final class EpgView extends FrameLayout {
 
         LinearLayout panel = vertical();
         panel.setPadding(px(24), px(14), px(24), px(12));
-        panel.setBackground(shape(0xFA202222, 22, TvTheme.BORDER, 1));
+        panel.setBackground(shape(0xFA182438, 22, TvTheme.BORDER, 1));
         panel.setClickable(true);
         panel.setElevation(px(16));
         FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(960), MATCH_PARENT, Gravity.CENTER);
@@ -257,7 +257,7 @@ public final class EpgView extends FrameLayout {
     private final class ProgrammeRow extends LinearLayout {
         final TextView dateLabel, timeLabel, nameLabel, description, badge;
         private final GradientDrawable idle = shape(TvTheme.CARD, 12, TvTheme.BORDER, 1);
-        private final GradientDrawable current = shape(0xFF2D4942, 12, TvTheme.ACCENT, 1);
+        private final GradientDrawable current = shape(TvTheme.FOCUS, 12, TvTheme.ACCENT, 1);
         private final GradientDrawable focused = shape(TvTheme.FOCUS, 12, ACCENT, 2);
         ProgrammeRow() {
             super(EpgView.this.getContext());

@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.8` / versionCode 16，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.9` / versionCode 17，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -19,6 +19,10 @@ Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为�
 注入脚本缓存于内存，网页与播放回调附带页面标识，丢弃旧页面异步事件。Logcat 标签 `WVTResearch` 记录页面、注入、视频状态和首帧，供复核。来源能否播放仍受网站、网络、地区、登录/DRM、编码支持与自动播放策略影响。
 
 ## 版本变化
+
+### 0.4.9：深蓝菜单、起播估算与完整五秒信息
+
+移除菜单顶部区域，设置移入底部四栏工具，缩小手机字号并恢复深蓝配色。加载显示来源域名和受真实阶段约束的估算进度，结合每源八次成功起播耗时中位数；超时倒计时保持独立。频道实际出画后才开始完整五秒信息展示。详见 [release-049.md](release-049.md)。
 
 ### 0.4.8：有时限的加载反馈与暖炭灰菜单
 

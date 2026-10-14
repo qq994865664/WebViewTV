@@ -12,8 +12,8 @@ import android.widget.TextView;
 /** Non-interactive five-second banner, separate from the channel guide. */
 public final class ChannelInfoView extends LinearLayout {
     private final float scale;
-    private final TextView name, source, nowProgramme, nextProgramme;
-    private final Runnable dismiss = this::hide;
+    private final TextView name, source, website, nowProgramme, nextProgramme;
+    private final Runnable dismiss = () -> animate().alpha(0).setDuration(250).withEndAction(() -> setVisibility(GONE)).start();
 
     public ChannelInfoView(Context context) {
         super(context);
@@ -28,7 +28,7 @@ public final class ChannelInfoView extends LinearLayout {
         background.setStroke(px(1), TvTheme.BORDER);
         setBackground(background);
         setElevation(px(12));
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(px(760), px(108), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(px(760), -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         params.bottomMargin = px(24);
         setLayoutParams(params);
         LinearLayout heading = new LinearLayout(context);
@@ -44,6 +44,8 @@ public final class ChannelInfoView extends LinearLayout {
         source.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         heading.addView(source, new LayoutParams(px(100), -1));
         addView(heading, new LayoutParams(-1, px(50)));
+        website = label("", 14, TvTheme.MUTED);
+        addView(website, new LayoutParams(-1, px(24)));
         nowProgramme = label("", 13, TvTheme.INK);
         nextProgramme = label("", 12, TvTheme.MUTED);
         addView(nowProgramme, new LayoutParams(-1, px(18)));
@@ -51,14 +53,17 @@ public final class ChannelInfoView extends LinearLayout {
         setVisibility(GONE);
     }
 
-    public void setChannel(String title, int sourceIndex, int count) {
+    public void setChannel(String title, int sourceIndex, int count, String domain) {
         name.setText(title);
+        website.setText(domain);
         source.setText(count > 0 ? "源 " + (sourceIndex + 1) + " / " + count : "暂无播放源");
     }
 
     /** Guide refreshes update content without extending or reopening the banner. */
     public void setProgramme(String now, String next) {
         nowProgramme.setText(now == null || now.isEmpty() ? "" : "现在 · " + now);
+        nowProgramme.setVisibility(now == null || now.isEmpty() ? GONE : VISIBLE);
+        nextProgramme.setVisibility(next == null || next.isEmpty() ? GONE : VISIBLE);
         nextProgramme.setText(next == null || next.isEmpty() ? "" : "接下来 · " + next);
     }
 
@@ -67,16 +72,17 @@ public final class ChannelInfoView extends LinearLayout {
     public void showForRemaining(long remaining) {
         if (remaining <= 0) return;
         removeCallbacks(dismiss);
+        animate().withEndAction(null);
         animate().cancel();
         setVisibility(VISIBLE);
         setAlpha(0);
-        setTranslationY(px(8));
-        animate().alpha(1).translationY(0).setDuration(120).start();
-        postDelayed(dismiss, Math.min(5000, remaining));
+        setTranslationY(0);
+        animate().alpha(1).translationY(0).setDuration(150).withEndAction(() -> postDelayed(dismiss, Math.min(5000, remaining))).start();
     }
 
     public void hide() {
         removeCallbacks(dismiss);
+        animate().withEndAction(null);
         animate().cancel();
         setVisibility(GONE);
     }
