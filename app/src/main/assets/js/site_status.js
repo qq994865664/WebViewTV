@@ -1,7 +1,8 @@
 /* Report a visible site restriction, without changing authentication or its player. */
 (function () {
     'use strict';
-    if (!/^(www\.)?btime\.(com|cn)$/.test(location.hostname) || window.wvt_siteStatus) return;
+    var cctv = location.hostname === 'tv.cctv.com';
+    if ((!cctv && !/^(www\.)?btime\.(com|cn)$/.test(location.hostname)) || window.wvt_siteStatus) return;
     window.wvt_siteStatus = true;
     var timer, stopped = false, matches = 0, attempts = 0, token = window.__wvtPlaybackToken;
     function check() {
@@ -13,9 +14,13 @@
         }
         if (playing) return;
         var text = document.body ? document.body.innerText : '';
-        matches = /登录后即可观看精彩节目/.test(text) ? matches + 1 : 0;
+        // Player notices can be split across lines or inline spans.
+        text = text.replace(/\s+/g, '');
+        var restricted = cctv ? /由于播出安排变更[，,]?暂不支持播放该时段内容/.test(text)
+                : /登录后即可观看精彩节目/.test(text);
+        matches = restricted ? matches + 1 : 0;
         if (matches >= 2 && window.main && typeof window.main.reportSiteIssue === 'function') {
-            window.main.reportSiteIssue(token, 'login-required');
+            window.main.reportSiteIssue(token, cctv ? 'schedule-unavailable' : 'login-required');
             return;
         }
         timer = setTimeout(check, 1000);

@@ -1221,6 +1221,8 @@ public class MainActivity extends Activity {
                 String host = Uri.parse(web.getUrl() == null ? "" : web.getUrl()).getHost();
                 if ("login-required".equals(code) && host != null && host.matches("(www\\.)?btime\\.(com|cn)"))
                     recordPlaybackError("该直播源要求网页登录");
+                else if ("schedule-unavailable".equals(code) && "tv.cctv.com".equals(host))
+                    recordPlaybackError("播出安排变更 · 当前时段暂不支持播放");
             });
         }
         @JavascriptInterface public void reportMediaStage(String token,int stage) {

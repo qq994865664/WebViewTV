@@ -151,6 +151,7 @@ public final class PlaybackTest extends Instrumentation {
             verify("no horizontal overflow after fullscreen", "true".equals(evaluate("Math.abs(innerWidth-document.documentElement.clientWidth)<3")));
             verifyLongSourceHeader();
             verifyInjectionRecovery();
+            verifyScheduleRestriction();
             result.putString("stream","\nPASS "+checks+" playback assertions\n"); finish(Activity.RESULT_OK,result);
         } catch(Throwable error) {
             result.putString("stream","\nFAIL "+android.util.Log.getStackTraceString(error)); finish(Activity.RESULT_CANCELED,result);
@@ -194,8 +195,35 @@ public final class PlaybackTest extends Instrumentation {
         ui(()->activity.new Bridge().reportSiteIssue(token,"login-required"));
         ui(()->verify("unrelated host cannot produce a login restriction",((String)field("playbackIssue")).isEmpty()));
     }
+    private void verifyScheduleRestriction() throws Exception {
+        final String base="https://tv.cctv.com/live/cctv8/";
+        ui(()->{
+            invoke("play",new Class[]{int.class,int.class},1,-999);
+            WebView view=(WebView)field("web");view.stopLoading();
+            setField("sourceUrl",base);setField("pendingNavigationUrl",base);
+            view.loadDataWithBaseURL(base,"<!doctype html><body><div>由于播出安排变更，<br>暂不支持播放该时段内容</div></body>","text/html","UTF-8",base);
+        });
+        final String message="播出安排变更 · 当前时段暂不支持播放";
+        try { awaitField("playbackIssue",message); }
+        catch(AssertionError error) {
+            throw new AssertionError(error.getMessage()+" pending="+field("navigationPending")+" injected="+field("pageInjected")+
+                    " page="+evaluate("JSON.stringify({url:location.href,text:document.body.innerText,site:window.wvt_siteStatus,token:window.__wvtPlaybackToken})"));
+        }
+        ui(()->{
+            verify("CCTV notice is shown instead of a generic connecting message",message.equals(statusStage().getText().toString()));
+            verify("CCTV detection does not restart source timeout",((SourceFailover)field("sourceFailover")).remaining(SystemClock.elapsedRealtime())<4500);
+            verify("CCTV restriction cannot reveal a nonexistent video",!(Boolean)field("videoReady")&&cover().getVisibility()==View.VISIBLE);
+            activity.new Bridge().reportSiteIssue("old:token","login-required");
+            activity.new Bridge().reportSiteIssue(activity.new Bridge().getPlaybackToken(),"login-required");
+            verify("stale token and wrong site code cannot replace CCTV message",message.equals(field("playbackIssue")));
+        });
+        awaitField("playbackFailed",true);SystemClock.sleep(300);
+        ui(()->verify("CCTV reason remains on the terminal failure card",message.equals(field("failureMessage"))&&message.equals(statusStage().getText().toString())));
+        JSONObject report=new JSONObject((String)field("lastPlaybackDiagnostic"));
+        verify("CCTV reason is retained in copyable failure diagnostics",message.equals(report.getString("issue")));
+    }
     private void awaitField(String name,Object expected){
-        long end=SystemClock.uptimeMillis()+4000;boolean[] matched={false};
+        long end=SystemClock.uptimeMillis()+6000;boolean[] matched={false};
         while(SystemClock.uptimeMillis()<end){ui(()->matched[0]=expected.equals(field(name)));if(matched[0])return;SystemClock.sleep(30);}
         throw new AssertionError("Timed out waiting for "+name+"="+expected);
     }

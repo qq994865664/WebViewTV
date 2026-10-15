@@ -29,6 +29,20 @@ f=site();f.window.__wvtPlaybackToken='2:3';f.tick();check('old page cannot repor
 f=site();f.hide();f.tick();check('page exit cancels restriction polling',f.reports.length===0);
 f=site();f.document.body.innerText='';f.tick();f.document.body.innerText='登录后即可观看精彩节目';f.tick();
 check('transient restriction does not accumulate across interruptions',f.reports.length===0);
+const schedule='由于播出安排变更，暂不支持播放该时段内容';
+f=site({host:'tv.cctv.com',text:schedule});f.tick();
+check('CCTV schedule restriction has its own token-scoped issue code',JSON.stringify(f.reports)==='[["1:2","schedule-unavailable"]]');
+f=site({host:'tv.cctv.com',text:'由于播出安排变更,\n 暂不支持播放\n该时段内容'});f.tick();
+check('CCTV notice tolerates line breaks and comma variants',f.reports.length===1);
+for(const options of [{host:'tv.cctv.com',text:schedule,playing:true},{host:'tv.cctv.com.evil.test',text:schedule},
+    {host:'www.btime.com',text:schedule},{host:'tv.cctv.com',text:'暂不支持播放'},
+    {host:'tv.cctv.com',text:'登录后即可观看精彩节目'}]){
+    f=site(options);f.tick();check('CCTV detection excludes playing video, wrong hosts and unrelated notices',f.reports.length===0);
+}
+f=site({host:'tv.cctv.com',text:schedule});f.window.__wvtPlaybackToken='3:4';f.tick();
+check('CCTV old document cannot label a new channel',f.reports.length===0);
+f=site({host:'tv.cctv.com',text:schedule});f.document.body.innerText='';f.tick();
+check('transient CCTV notice does not cause a restriction',f.reports.length===0);
 const predicate=JSON.parse(read('webpage_adapter.json')).find(a=>a.url==='gdtv.cn').preClickElementCondition;
 const eligible=p=>vm.runInNewContext(predicate,{e:{classList:{contains:()=>true},parentElement:p}});
 check('Guangdong empty poster is not clicked',!eligible({querySelector:()=>null}));
