@@ -35,7 +35,10 @@ function wvt_setupNonVideo(element) {
 
 function wvt_playVideo() {
     if (window.wvt_video != null && window.wvt_video.paused) {
-        window.wvt_video.play();
+        var promise = window.wvt_video.play();
+        if (promise && typeof promise.catch === 'function') promise.catch(function (error) {
+            if (error && typeof error.name === 'string' && /^[A-Za-z]{1,40}$/.test(error.name)) window.wvt_lastPlayError = error.name;
+        });
     }
     if (window.wvt_video == null || window.wvt_video.paused) {
         if (wvt_needPlayButton()) {
@@ -72,6 +75,7 @@ function playVideoIfPaused() {
 
 function performPreClickIfNeeded() {
 	if (wvt_needPreClick() && !window.wvt_preClickFinished) {
+		if (typeof window.wvt_confirmGdtvStart === 'function') return window.wvt_confirmGdtvStart();
 		var element = wvt_getPreClickElement();
 		if (element == null) {
 			wvt_log("pre click element not found");

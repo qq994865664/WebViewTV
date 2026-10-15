@@ -152,6 +152,7 @@ public final class PlaybackTest extends Instrumentation {
             verifyLongSourceHeader();
             verifyInjectionRecovery();
             verifyScheduleRestriction();
+            verifyHlsFailureDiagnostic();
             result.putString("stream","\nPASS "+checks+" playback assertions\n"); finish(Activity.RESULT_OK,result);
         } catch(Throwable error) {
             result.putString("stream","\nFAIL "+android.util.Log.getStackTraceString(error)); finish(Activity.RESULT_CANCELED,result);
@@ -221,6 +222,29 @@ public final class PlaybackTest extends Instrumentation {
         ui(()->verify("CCTV reason remains on the terminal failure card",message.equals(field("failureMessage"))&&message.equals(statusStage().getText().toString())));
         JSONObject report=new JSONObject((String)field("lastPlaybackDiagnostic"));
         verify("CCTV reason is retained in copyable failure diagnostics",message.equals(report.getString("issue")));
+    }
+    private void verifyHlsFailureDiagnostic() throws Exception {
+        final String base="https://m.gdtv.cn/tvChannelDetail/45";
+        ui(()->{
+            invoke("play",new Class[]{int.class,int.class},1,-999);
+            WebView view=(WebView)field("web");view.stopLoading();
+            setField("sourceUrl",base);setField("pendingNavigationUrl",base);
+            view.loadDataWithBaseURL(base,"<!doctype html><body>Player fixture</body>","text/html","UTF-8",base);
+        });
+        awaitField("pageInjected",true);
+        evaluate("window.wvt_hlsRecovery={attempted:true,failed:true,stage:'failed',failedStage:'starting',bytes:0,fragments:0,native:{error:4,ready:0,host:'cdn.example.com'},lastError:{type:'networkError',details:'manifestLoadError',httpStatus:403,host:'cdn.example.com',fatal:true}};");
+        ui(()->{
+            activity.new Bridge().reportSiteIssue(activity.new Bridge().getPlaybackToken(),"hls-access-denied");
+            verify("confirmed HLS denial replaces the generic loading message","直播源拒绝访问".equals(statusStage().getText().toString()));
+            activity.new Bridge().reportSiteIssue("stale:token","hls-media");
+            verify("old HLS events cannot replace the current error","直播源拒绝访问".equals(field("playbackIssue")));
+        });
+        CountDownLatch latch=new CountDownLatch(1);String[] diagnostic={""};
+        ui(()->invoke("capturePlaybackDiagnostic",new Class[]{String.class,java.util.function.Consumer.class},"manual",
+                (java.util.function.Consumer<String>)(value->{diagnostic[0]=value;latch.countDown();})));
+        verify("detailed HLS diagnostics complete",latch.await(5,TimeUnit.SECONDS));
+        JSONObject media=new JSONObject(diagnostic[0]).getJSONObject("media");
+        verify("detached video cannot erase the saved native and HLS errors",media.getJSONObject("hls").getJSONObject("native").getInt("error")==4&&media.getJSONObject("hls").getJSONObject("error").getInt("httpStatus")==403);
     }
     private void awaitField(String name,Object expected){
         long end=SystemClock.uptimeMillis()+6000;boolean[] matched={false};

@@ -14,6 +14,10 @@ adapter='{}';vm.runInContext(init,ctx);
 check('same document can initialize on retry',ctx.window.wvt_javascriptInjected&&timers===1&&listeners===1);
 vm.runInContext(init,ctx);
 check('successful reinjection cannot duplicate the main loop',timers===1&&listeners===1);
+ctx.wvt_needPlayButton=()=>false;
+ctx.window.wvt_video={paused:true,play:()=>({catch(fn){fn({name:'NotAllowedError',message:'PRIVATE'});}})};
+ctx.wvt_playVideo();
+check('standard playback records autoplay rejection without an unhandled promise or raw message',ctx.window.wvt_lastPlayError==='NotAllowedError');
 function site({host='www.btime.com',text='登录后即可观看精彩节目',playing=false}={}){
     let timer,hide;const reports=[];
     const window={__wvtPlaybackToken:'1:2',main:{reportSiteIssue:(...a)=>reports.push(a)},addEventListener:(e,cb)=>hide=cb};

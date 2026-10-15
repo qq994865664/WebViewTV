@@ -1,6 +1,6 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.15` / versionCode 23，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.16` / versionCode 24，包名 `com.vasthread.webviewtv.reconstructed`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
@@ -119,3 +119,14 @@ EPG 使用用户指定的 [FreeEPG 中国源](https://free-epg.de/countries/cn)�
 ## 0.4.15 央视时段限制提示
 
 在既有网站状态识别中加入 tv.cctv.com 的“由于播出安排变更，暂不支持播放该时段内容”。按可见正文识别，容忍播放器提示换行和中文/英文逗号，连续两次匹配且没有正常播放视频才报告。JS 报告 `schedule-unavailable`，原生层核对当前页面域名、播放标识与状态后显示“播出安排变更 · 当前时段暂不支持播放”。提示保留到失败卡和最近超时诊断；超时切源倒计时不重置。并非固定禁用 CCTV8，也不根据频道名称或媒体错误推测限制原因。
+
+
+## 0.4.16 广东台启动确认与失败诊断
+
+用户提供 realme RMX3820 / Android16 / WebView153.0.8010.36 的广东新闻 `/tvChannelDetail/45` 诊断：页面提交、注入、preClick 和全屏均完成，原生始终未出画，兼容播放器 attempted/failed 均为 true。用户补充手机浏览器手动点击页面播放按钮可以直播。这不足以认定 App 的故障由用户手势导致：旧 preClick 标记仅代表调用 click，而兼容恢复已获得网站提供的媒体地址；原版本销毁 HLS 引擎后丢失了失败原因。
+
+修复已知缺口：新增广东台启动确认，观察实际视频地址与网站 isPlaying/按钮隐藏状态，或真实正在播放状态；未确认则按至少700ms间隔最多点击三次，不把发出点击当作开始播放。实际出画仍由既有帧/时钟判断。广东台不再因三秒无数据就接管，仅在原生 MediaError 2/3/4 且网站已接受启动时尝试一次 HLS。Hoolo 原有三秒策略保留。超时规则不变。
+
+HLS 销毁前保存原生错误和媒体状态、fatal 类型/细节、HTTP 状态（无值保留 null）、阶段、收到字节和片段次数；仅保留媒体域名，不保留签名URL和错误原文。原生层显示数据请求失败、拒绝访问或媒体处理失败等对应提示；当前文档/token/站点范围校验继续生效。记录 play() 拒绝名称，区分 NotAllowedError 与其他启动失败。HLS1.7.3已有内部网络重试和部分媒体恢复，本版未添加无条件循环恢复。
+
+隔离 Edge144 使用用户手机的UA字符串对照 `/45` 可出画；该对照没有模拟 Android153 内核。受控403测试复现 HLS销毁后 video.error=0/network=0，同时新版保留 networkError/manifestLoadError/httpStatus403/native.error4。本结果用于证明诊断保留有效，不代表用户手机收到403。REA被动页面证据：`ev_118151bdd6acfe8cd6b10f887f8feef05fe1c4e17cc6b9a510209c073d0d2510`，不包含附着前网络历史。

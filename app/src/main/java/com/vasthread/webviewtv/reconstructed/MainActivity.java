@@ -165,7 +165,7 @@ public class MainActivity extends Activity {
             scriptPrefix = asset("js/base.js") + "\n" + asset("js/platform_x5.js").replace("window.main.reportVideoLoadingState(isLoading);", "window.main.reportVideoLoadingStateForToken(window.__wvtPlaybackToken,isLoading);") + "\n";
             mainScript = asset("js/main.js");
             scriptSuffix = "\n" + asset("js/tv_fullscreen.js").replace("window.main.reportVideoLoadingState(false);", "window.main.reportVideoLoadingStateForToken(window.__wvtPlaybackToken,false);").replace("window.main.reportViewportFullscreen(viewportWidth, viewportHeight, videoWidth, videoHeight);", "window.main.reportViewportFullscreenForToken(window.__wvtPlaybackToken,viewportWidth,viewportHeight,videoWidth,videoHeight);") + "\n" + asset("js/fast_switch.js");
-            scriptSuffix += "\n" + asset("js/playback_health.js");
+            scriptSuffix += "\n" + asset("js/playback_health.js") + "\n" + asset("js/gdtv_startup.js");
             applyPlaybackSettings();
         } catch (Exception error) {
             android.util.Log.e(TAG, "Configuration or assets failed", error);
@@ -1223,6 +1223,17 @@ public class MainActivity extends Activity {
                     recordPlaybackError("该直播源要求网页登录");
                 else if ("schedule-unavailable".equals(code) && "tv.cctv.com".equals(host))
                     recordPlaybackError("播出安排变更 · 当前时段暂不支持播放");
+                else if ("m.gdtv.cn".equals(host) || "tv.hoolo.tv".equals(host)) {
+                    switch (code) {
+                        case "hls-network": recordPlaybackError("直播数据请求失败"); break;
+                        case "hls-access-denied": recordPlaybackError("直播源拒绝访问"); break;
+                        case "hls-not-found": recordPlaybackError("直播源地址已不可用"); break;
+                        case "hls-unsupported": recordPlaybackError("当前 WebView 不支持该直播编码"); break;
+                        case "hls-media": recordPlaybackError("直播媒体处理失败"); break;
+                        case "hls-failed": recordPlaybackError("兼容播放器启动失败"); break;
+                        default: break;
+                    }
+                }
             });
         }
         @JavascriptInterface public void reportMediaStage(String token,int stage) {

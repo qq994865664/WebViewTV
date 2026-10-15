@@ -176,7 +176,10 @@
             var promise = video.play();
             if (promise && typeof promise.then === 'function') {
                 playPending.add(video);
-                promise.then(function () { playPending.delete(video); observe(); }, function () { playPending.delete(video); });
+                promise.then(function () { playPending.delete(video); window.wvt_lastPlayError = ''; observe(); }, function (error) {
+                    playPending.delete(video);
+                    if (error && typeof error.name === 'string' && /^[A-Za-z]{1,40}$/.test(error.name)) window.wvt_lastPlayError = error.name;
+                });
             }
             if (video.paused && typeof wvt_needPlayButton === 'function' && wvt_needPlayButton()) {
                 var button = runStage(wvt_getPlayButton);
