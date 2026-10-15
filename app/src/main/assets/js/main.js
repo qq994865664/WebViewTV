@@ -176,8 +176,8 @@ function wvt_main() {
 
 if (!window.wvt_javascriptInjected) {
 	wvt_log("javascript injected successfully.");
-	window.wvt_javascriptInjected = true;
 	wvt_init();
+	window.wvt_javascriptInjected = true;
 } else {
 	wvt_error("javascript already injected.");
 }

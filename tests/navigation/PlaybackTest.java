@@ -150,11 +150,56 @@ public final class PlaybackTest extends Instrumentation {
             verifyViewport("wide desktop page fills screen");
             verify("no horizontal overflow after fullscreen", "true".equals(evaluate("Math.abs(innerWidth-document.documentElement.clientWidth)<3")));
             verifyLongSourceHeader();
+            verifyInjectionRecovery();
             result.putString("stream","\nPASS "+checks+" playback assertions\n"); finish(Activity.RESULT_OK,result);
         } catch(Throwable error) {
             result.putString("stream","\nFAIL "+android.util.Log.getStackTraceString(error)); finish(Activity.RESULT_CANCELED,result);
         } finally { try { if(server!=null)server.close(); }catch(IOException ignored){} }
     }
+    private void verifyInjectionRecovery() throws Exception {
+        String[] adapter={""};
+        ui(()->{
+            invoke("play",new Class[]{int.class,int.class},1,-999);
+            adapter[0]=(String)field("adapterJson");setField("adapterJson","{");
+        });
+        awaitField("playbackIssue","播放器适配未能加载");
+        ui(()->{
+            verify("injection failure is visible while source deadline continues",statusStage().getText().toString().contains("适配"));
+            setField("adapterJson",adapter[0]);
+        });
+        awaitField("pageInjected",true);
+        ui(()->{
+            verify("failed document recovers with a finite retry",(Integer)field("injectionAttempts")>=2&&(Integer)field("injectionAttempts")<=3);
+            verify("successful retry clears adapter error",((String)field("playbackIssue")).isEmpty());
+            verify("retry does not reset the source deadline",((SourceFailover)field("sourceFailover")).remaining(SystemClock.elapsedRealtime())<5000);
+            invoke("play",new Class[]{int.class,int.class},0,-999);setField("adapterJson","{");
+        });
+        awaitField("injectionAttempts",3);SystemClock.sleep(500);
+        ui(()->{
+            invoke("inject",new Class[]{});
+            verify("permanent injection failure stops at three attempts",(Integer)field("injectionAttempts")==3&&!(Boolean)field("pageInjected"));
+            invoke("play",new Class[]{int.class,int.class},0,-999);
+        });
+        awaitPlaying("new source resets retry budget");
+        SystemClock.sleep(500);
+        ui(()->verify("old retries cannot re-inject the new document",(Integer)field("injectionAttempts")==1));
+        CountDownLatch latch=new CountDownLatch(1);String[] diagnostic={""};
+        ui(()->invoke("capturePlaybackDiagnostic",new Class[]{String.class,java.util.function.Consumer.class},"manual",
+                (java.util.function.Consumer<String>)(value->{diagnostic[0]=value;latch.countDown();})));
+        verify("native diagnostic collection completes",latch.await(5,TimeUnit.SECONDS));
+        JSONObject report=new JSONObject(diagnostic[0]);
+        verify("diagnostic contains actual WebView and device",report.getString("webview").contains("webview")&&!report.getString("device").isEmpty());
+        verify("diagnostic evaluates media state without ASI or JSON errors",report.getJSONObject("media").getBoolean("injected")&&report.getJSONObject("media").getJSONArray("videos").length()>0);
+        String token=activity.new Bridge().getPlaybackToken();
+        ui(()->activity.new Bridge().reportSiteIssue(token,"login-required"));
+        ui(()->verify("unrelated host cannot produce a login restriction",((String)field("playbackIssue")).isEmpty()));
+    }
+    private void awaitField(String name,Object expected){
+        long end=SystemClock.uptimeMillis()+4000;boolean[] matched={false};
+        while(SystemClock.uptimeMillis()<end){ui(()->matched[0]=expected.equals(field(name)));if(matched[0])return;SystemClock.sleep(30);}
+        throw new AssertionError("Timed out waiting for "+name+"="+expected);
+    }
+    private void setField(String name,Object value){try{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);f.set(activity,value);}catch(Exception e){throw new RuntimeException(e);}}
     private String html(String path) {
         String head="<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><style>html{zoom:1.3}body{margin:48px;zoom:1.2}.wrapper{width:300px;height:180px;transform:translate(20px,30px);overflow:hidden;zoom:1.4}video{width:280px;height:160px}iframe{width:300px;height:180px}</style></head><body>Channel title";
         if(path.equals("/title"))return head+"<div>Waiting for unavailable stream</div></body></html>";

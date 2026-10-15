@@ -47,7 +47,7 @@
     "needPlayButton": false,
     "playButtonCondition": "true",
     "needPreClick": true,
-    "preClickElementCondition": "e.classList.contains('playIco') && !!e.parentElement.__vue__?.videoSource?.playUrl",
+    "preClickElementCondition": "e.classList.contains('playIco') && (function(p){if(!p)return false;var state=p.__vue__,v=p.querySelector('video'),s=v&&v.querySelector('source');return !!((state&&state.videoSource&&state.videoSource.playUrl)||(v&&(v.currentSrc||v.getAttribute('src')))||(s&&s.getAttribute('src')));})(e.parentElement)",
     "needPreClick2": false,
     "preClickElementCondition2": "true"
   },

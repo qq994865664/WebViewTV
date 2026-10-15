@@ -1,9 +1,15 @@
-/* Hoolo's legacy player repeatedly reloads native HLS after Android MediaPlayer I/O errors. */
+/* One startup recovery for site-assigned native HLS; never replace a working player. */
 (function () {
     'use strict';
-    if (location.hostname !== 'tv.hoolo.tv' || window.wvt_hlsRecovery || !window.Hls || !Hls.isSupported()) return;
+    var gdtv = location.hostname === 'm.gdtv.cn';
+    if ((!gdtv && location.hostname !== 'tv.hoolo.tv') || window.wvt_hlsRecovery || !window.Hls || !Hls.isSupported()) return;
     var timer = 0, reportTimer = 0, engine = null, firstSource = '', firstSeen = 0, stopped = false;
-    window.wvt_hlsRecovery = { attempted: false };
+    window.wvt_hlsRecovery = { attempted: false, stop: stop };
+    function stop() {
+        stopped = true;
+        clearTimeout(timer);
+        destroyEngine();
+    }
     function destroyEngine() {
         clearTimeout(reportTimer);
         reportTimer = 0;
@@ -54,13 +60,16 @@
     }
     function check() {
         if (stopped) return;
-        var video = document.querySelector('#m2o_liveplayer video');
-        var source = video && (video.currentSrc || video.src);
+        var video = document.querySelector(gdtv ? '.video-player video' : '#m2o_liveplayer video');
+        var sourceElement = video && video.querySelector && video.querySelector('source');
+        var source = video && (video.currentSrc || video.src || (sourceElement && sourceElement.src));
         if (source && /^https?:\/\//i.test(source) && /\.m3u8(?:\?|$)/i.test(source)) {
             if (source !== firstSource) { firstSource = source; firstSeen = Date.now(); }
             // Keep a working website player. Recovery is once per page, using its own public URL.
             var playing = !video.paused && !video.error && video.readyState >= 2 && video.videoWidth > 0 && video.currentTime > 0;
-            if (!playing && (video.error || Date.now() - firstSeen >= 3000)) {
+            if (playing) return; // Startup recovery only; later stalls use the native source watchdog.
+            var failed = video.error && video.error.code >= 2 && video.error.code <= 4;
+            if (failed || (!video.error && video.readyState < 2 && Date.now() - firstSeen >= 3000)) {
                 window.wvt_hlsRecovery.attempted = true;
                 try {
                     if (video.player && typeof video.player.dispose === 'function') video.player.dispose();
@@ -76,7 +85,7 @@
                     observeTransport(engine);
                     engine.on(Hls.Events.MANIFEST_PARSED, function () { replacement.play().catch(function () {}); });
                     engine.on(Hls.Events.ERROR, function (event, data) {
-                        if (data && data.fatal) destroyEngine();
+                        if (data && data.fatal) { window.wvt_hlsRecovery.failed = true; destroyEngine(); }
                     });
                     engine.attachMedia(replacement);
                     engine.loadSource(source);
@@ -88,10 +97,6 @@
         }
         timer = setTimeout(check, playing ? 1500 : 250);
     }
-    window.addEventListener('pagehide', function () {
-        stopped = true;
-        clearTimeout(timer);
-        destroyEngine();
-    }, { once: true });
+    window.addEventListener('pagehide', stop, { once: true });
     check();
 })();

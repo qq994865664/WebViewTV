@@ -1,14 +1,16 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.13**（versionCode 21），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.14**（versionCode 22），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.13-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.14-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，菜单底部进入设置；系统返回键先关闭面板，再显示退出确认。
 
-**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.13/WebViewTV-0.4.13-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.13 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
+**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.14/WebViewTV-0.4.14-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.14 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
+
+0.4.14 增加播放器注入有限重试、广东台原生 HLS 起播失败后的一次兼容恢复，并明确提示北京台网站的登录限制。菜单「更多 → 来源详情 → 复制播放诊断」可复制设备、WebView 和播放器状态，便于手机无法通过 USB 调试时排查。保留 0.4.13 的菜单样式与超时规则；realme GT5 真机效果待回测，不能据模拟器与桌面浏览器结果认定手机故障已完全解决。详见 [0.4.14 发布说明](docs/release-0414.md)。
 
 0.4.13 仅调整左侧分组行高：改为 0.4.11 原始高度的 70%，即缩小 30%，比 0.4.12 增加约 16.7%。底部按钮、字号、来源同一行布局、节目预览与播放行为沿用 0.4.12。详见 [0.4.13 发布说明](docs/release-0413.md)。
 

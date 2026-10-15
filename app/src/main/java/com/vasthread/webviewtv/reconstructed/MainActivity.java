@@ -54,6 +54,8 @@ public class MainActivity extends Activity {
     private TextView playbackCover;
     private PlaybackStatusView playbackStatus;
     private String loadingPhase = "正在连接频道页面", failureMessage = "", sourceTransition = "";
+    private String playbackIssue = "", lastPlaybackDiagnostic = "";
+    private int injectionAttempts;
     private boolean infoPending, startupRecorded;
     private String sourceUrl = "", historyKey = "";
     private final PlaybackEstimate startupEstimate = new PlaybackEstimate();
@@ -270,6 +272,7 @@ public class MainActivity extends Activity {
                 viewportFullscreen = false;
                 pageInjected = false;
                 pageInjectionAttempted = false;
+                injectionAttempts = 0;
                 videoReady = false;
                 firstFrameReported = false;
                 pageCommitted = false;
@@ -293,7 +296,7 @@ public class MainActivity extends Activity {
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame() && Objects.equals(request.getUrl().toString(), view.getUrl())) {
-                    recordPlaybackError("频道网页连接失败");
+                    recordPlaybackError("频道网页连接失败 (" + error.getErrorCode() + ")");
                     android.util.Log.w(TAG, "main page error " + error.getDescription());
                 }
             }
@@ -405,7 +408,8 @@ public class MainActivity extends Activity {
             public void onRefresh() { refresh(); }
             public void onSourceDetails() {
                 new AlertDialog.Builder(MainActivity.this).setTitle("来源网站 · " + sourceDomain())
-                        .setMessage(sourceUrl).setPositiveButton("关闭",null).show();
+                        .setMessage(sourceUrl).setNeutralButton("复制播放诊断", (dialog, which) -> copyPlaybackDiagnostic())
+                        .setPositiveButton("关闭",null).show();
             }
             public void onPip() { pip(); }
             public void onSettings() { openSettings(); }
@@ -530,6 +534,8 @@ public class MainActivity extends Activity {
         navigationPending = true;
         pageInjected = false;
         pageInjectionAttempted = false;
+        injectionAttempts = 0;
+        playbackIssue = "";
         viewportFullscreen = false;
         playbackCover.setText("");
         playbackCover.setVisibility(View.VISIBLE);
@@ -567,6 +573,7 @@ public class MainActivity extends Activity {
             sourceFailover.resume(now); startupEstimate.resume(now);
             int next = sourceFailover.next(now);
             if (next >= 0) {
+                capturePlaybackDiagnostic("source-timeout", null);
                 resetPlaybackSwipe();
                 handler.removeCallbacks(selectNumber); digits = "";
                 playInternal(channelIndex, next, true);
@@ -583,7 +590,7 @@ public class MainActivity extends Activity {
     }
 
     private void recordPlaybackError(String message) {
-        if (!playbackFailed) { loadingPhase = message; updatePlaybackStatus(); }
+        if (!playbackFailed) { playbackIssue = message; updatePlaybackStatus(); }
     }
 
     private void updatePlaybackStatus() {
@@ -602,7 +609,8 @@ public class MainActivity extends Activity {
             long now = SystemClock.elapsedRealtime();
             playbackStatus.loading(name, sourceDomain(), sourceIndex, sourceCount, startupEstimate.value(now),
                     sourceFailover.remaining(now), sourceFailover.willSwitch(now), videoReady && playbackCover.getVisibility() != View.VISIBLE,
-                    startupEstimate.uncertain(now), startupEstimate.waitingLabel());
+                    !playbackIssue.isEmpty() || startupEstimate.uncertain(now),
+                    playbackIssue.isEmpty() ? startupEstimate.waitingLabel() : playbackIssue);
         } else {
             playbackStatus.hide();
         }
@@ -621,8 +629,10 @@ public class MainActivity extends Activity {
     }
 
     private void showPlaybackFailure(String message) {
+        if (playbackFailed) return;
+        capturePlaybackDiagnostic("timeout", null);
         playbackFailed = true;
-        failureMessage = message;
+        failureMessage = playbackIssue.isEmpty() ? message : playbackIssue;
         buffering = false;
         handler.removeCallbacks(delayedBuffering);
         progress.setVisibility(View.GONE);
@@ -630,12 +640,13 @@ public class MainActivity extends Activity {
         channelInfo.hide();
         playbackStatus.hide();
         web.stopLoading();
-        web.evaluateJavascript("document.querySelectorAll('video').forEach(function(v){v.pause();})", null);
+        web.evaluateJavascript("if(window.wvt_hlsRecovery&&typeof window.wvt_hlsRecovery.stop==='function')window.wvt_hlsRecovery.stop();document.querySelectorAll('video').forEach(function(v){v.pause();})", null);
         updatePlaybackStatus();
     }
 
     private void playbackProgress() {
         if (playbackFailed) return;
+        playbackIssue = "";
         if (!startupRecorded) startupEstimate.media(3,SystemClock.elapsedRealtime());
         videoReady = true;
         if (!pageCommitted || (!viewportFullscreen && fullscreen == null)) {
@@ -711,29 +722,34 @@ public class MainActivity extends Activity {
     private void refresh() { sourceTransition = ""; showMenu(false); infoPending=true; hideFullscreen(); pendingNavigationUrl = web.getUrl(); web.stopLoading(); web.scrollTo(0, 0); beginLoading(); web.reload(); }
 
     private void inject() {
-        if (destroyed || isFinishing() || navigationPending || "about:blank".equals(web.getUrl())) return;
-        if (pageInjectionAttempted) return;
+        if (destroyed || isFinishing() || playbackFailed || navigationPending || "about:blank".equals(web.getUrl())) return;
+        if (pageInjected || pageInjectionAttempted || injectionAttempts >= 3) return;
         pageInjectionAttempted = true;
+        injectionAttempts++;
         final String pageUrl = web.getUrl();
         final int sequence = pageSequence;
+        final long token = playbackToken;
         try {
             if (injectionScript.isEmpty()) throw new IOException("Playback scripts unavailable");
             String siteScript = "";
-            if (pageUrl != null && "tv.hoolo.tv".equals(Uri.parse(pageUrl).getHost()))
+            if (pageUrl != null && ("tv.hoolo.tv".equals(Uri.parse(pageUrl).getHost()) || "m.gdtv.cn".equals(Uri.parse(pageUrl).getHost())))
                 siteScript = "\n" + asset("vendor/hls.light.min.js") + "\n" + asset("js/hls_recovery.js");
+            siteScript += "\n" + asset("js/site_status.js");
             String wrapped = "(function(){if(!document.documentElement||!document.body)return 'pending';try{window.__wvtPlaybackToken=" + JSONObject.quote(playbackToken + ":" + documentSequence) + ";\n" + injectionScript
                     + siteScript
                     + "\nreturn window.wvt_javascriptInjected === true && !!window.wvt_adapter && typeof window.wvt_enterViewportFullscreen === 'function';"
                     + "}catch(error){console.error('[WVTResearch] injection: '+error);return false;}})()";
             web.evaluateJavascript(wrapped, result -> {
-                if (sequence != pageSequence || !Objects.equals(pageUrl, web.getUrl())) return;
+                if (destroyed || token != playbackToken || sequence != pageSequence || !Objects.equals(pageUrl, web.getUrl())) return;
                 if ("\"pending\"".equals(result)) {
+                    injectionAttempts--; // No adapter code ran while waiting for a body.
                     pageInjectionAttempted = false;
-                    handler.postDelayed(() -> { if (sequence == pageSequence) inject(); }, 100);
+                    handler.postDelayed(() -> { if (token == playbackToken && sequence == pageSequence) inject(); }, 100);
                     return;
                 }
                 pageInjected = "true".equals(result);
                 if (pageInjected) {
+                    if ("播放器适配未能加载".equals(playbackIssue)) playbackIssue = "";
                     // A media element may report its stage before this async callback.
                     if ("正在连接频道页面".equals(loadingPhase)) loadingPhase = "正在准备播放器";
                     updatePlaybackStatus();
@@ -747,6 +763,53 @@ public class MainActivity extends Activity {
     private void injectionFailed(String reason, Exception error) {
         android.util.Log.e(TAG, "JS injection failed: " + reason, error);
         recordPlaybackError("播放器适配未能加载");
+        final long token = playbackToken;
+        final int sequence = pageSequence;
+        if (injectionAttempts < 3) handler.postDelayed(() -> {
+            if (destroyed || token != playbackToken || sequence != pageSequence) return;
+            pageInjectionAttempted = false;
+            inject();
+        }, 400);
+    }
+
+    private void copyPlaybackDiagnostic() {
+        final String previous = lastPlaybackDiagnostic;
+        capturePlaybackDiagnostic("manual", current -> {
+            ClipboardManager clipboard = (ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("WebViewTV 播放诊断",
+                    current + (previous.isEmpty() ? "" : "\n最近失败记录：\n" + previous)));
+            toast("播放诊断已复制");
+        });
+    }
+
+    private void capturePlaybackDiagnostic(String reason, java.util.function.Consumer<String> completion) {
+        try {
+            final String token = playbackToken + ":" + documentSequence;
+            JSONObject info = new JSONObject();
+            android.content.pm.PackageInfo app = getPackageManager().getPackageInfo(getPackageName(), 0);
+            android.content.pm.PackageInfo engine = WebView.getCurrentWebViewPackage();
+            Uri source = Uri.parse(sourceUrl);
+            info.put("app", app.versionName).put("device", Build.MANUFACTURER + " " + Build.MODEL)
+                    .put("android", Build.VERSION.RELEASE).put("sdk", Build.VERSION.SDK_INT)
+                    .put("webview", engine == null ? "unknown" : engine.packageName + " " + engine.versionName)
+                    .put("source", source.getScheme() + "://" + source.getHost() + source.getPath())
+                    .put("reason", reason).put("issue", playbackIssue).put("token", token)
+                    .put("pending", navigationPending).put("injected", pageInjected).put("attempts", injectionAttempts)
+                    .put("committed", pageCommitted).put("ready", videoReady).put("fullscreen", viewportFullscreen)
+                    .put("elapsedMs", SystemClock.elapsedRealtime() - switchStarted)
+                    .put("userAgent", web.getSettings().getUserAgentString());
+            String script = "(function(){if(window.__wvtPlaybackToken!==" + JSONObject.quote(token)
+                    + ")return {unavailable:true};return (" + asset("js/playback_diagnostic.js") + ");})()";
+            web.evaluateJavascript(script, result -> {
+                if (destroyed) return;
+                try {
+                    info.put("media", result == null || "null".equals(result) ? JSONObject.NULL : new JSONObject(result));
+                    String report = info.toString(2);
+                    if (!"manual".equals(reason)) lastPlaybackDiagnostic = report;
+                    if (completion != null) completion.accept(report);
+                } catch (Exception error) { if (completion != null) completion.accept(info.toString()); }
+            });
+        } catch (Exception error) { if (completion != null) completion.accept("诊断采集不可用"); }
     }
 
     private void hideFullscreen() {
@@ -1152,6 +1215,14 @@ public class MainActivity extends Activity {
     }
 
     public class Bridge {
+        @JavascriptInterface public void reportSiteIssue(String token, String code) {
+            runOnUiThread(() -> {
+                if (destroyed || playbackFailed || videoReady || !Objects.equals(token, getPlaybackToken())) return;
+                String host = Uri.parse(web.getUrl() == null ? "" : web.getUrl()).getHost();
+                if ("login-required".equals(code) && host != null && host.matches("(www\\.)?btime\\.(com|cn)"))
+                    recordPlaybackError("该直播源要求网页登录");
+            });
+        }
         @JavascriptInterface public void reportMediaStage(String token,int stage) {
             runOnUiThread(() -> {
                 if(destroyed || playbackFailed || startupRecorded || !Objects.equals(token,getPlaybackToken()))return;
