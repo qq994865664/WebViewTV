@@ -51,6 +51,22 @@ public final class FallbackTest extends Instrumentation {
                 SystemClock.sleep(1000);
             }
             verify("continuous progress keeps current source",source()==0);
+            callUi(() -> {
+                try {
+                    SourceFailover watchdog=(SourceFailover)field(activity,"sourceFailover");
+                    long now=SystemClock.elapsedRealtime();
+                    for (String name:new String[]{"roundStarted","lastProgress","stableSince"}) {
+                        Field f=SourceFailover.class.getDeclaredField(name); f.setAccessible(true);
+                        f.setLong(watchdog,name.equals("roundStarted")?now-60001:name.equals("lastProgress")?now-3001:-1);
+                    }
+                    MainActivity.Bridge bridge=activity.new Bridge();
+                    bridge.reportPlaybackProgress(bridge.getPlaybackToken());
+                    invoke("checkSourceTimeout",new Class[]{});
+                    verify("sparse real playback cancels old sixty-second wait",!(Boolean)field(activity,"playbackFailed"));
+                    verify("healthy playback does not switch source",(Integer)field(activity,"sourceIndex")==0);
+                    verify("healthy playback keeps failure card hidden",((android.view.View)field(activity,"playbackStatus")).getVisibility()==android.view.View.GONE);
+                } catch(Exception e){throw new RuntimeException(e);}
+            });
             callUi(() -> invoke("showMenu",new Class[]{boolean.class},true));
             SystemClock.sleep(6200); verify("menu keeps recovery running",source()==1);
             callUi(() -> verify("automatic recovery preserves open menu", ((TvMenuView)field(activity,"menu")).isOpen()));

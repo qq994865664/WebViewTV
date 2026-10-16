@@ -31,8 +31,11 @@ public final class SourceFailover {
         if (now - stableSince >= 2000) {
             java.util.Arrays.fill(attempted, false);
             if (current >= 0 && current < attempted.length) attempted[current] = true;
-            roundStarted = now;
         }
+        // Actual media progress ends the preceding wait even when a slow WebView
+        // reports less often than the stability threshold. Keep source-history
+        // reset separate: a single frame must not reopen every failed source.
+        roundStarted = now;
         exhausted = false;
         lastProgress = now;
     }
