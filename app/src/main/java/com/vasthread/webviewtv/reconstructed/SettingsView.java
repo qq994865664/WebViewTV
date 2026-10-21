@@ -35,6 +35,8 @@ public final class SettingsView extends FrameLayout {
         void onRefreshEpg();
         void onEditChannels();
         void onResetDefaults();
+        void onCheckUpdate();
+        void onDownloadUpdate();
         void onClose();
     }
 
@@ -56,6 +58,7 @@ public final class SettingsView extends FrameLayout {
     private final CheckBox epgEnabled, fastSwitch, rememberSource;
     private final TextView saveButton, remoteHint;
     private boolean opened;
+    private final TextView updateStatusLabel, checkUpdateButton, downloadUpdateButton;
 
     public SettingsView(Context context, Listener listener) {
         super(context);
@@ -155,6 +158,23 @@ public final class SettingsView extends FrameLayout {
         playback.addView(note("默认 15 秒；每轮最多等待 60 秒，每个来源尝试一次。关闭自动切源时等待 18 秒后提示。频道菜单继续计时；设置、节目单及后台暂停。"), noteParams());
         content.addView(playback, sectionParams());
 
+        String installed="未知";
+        try { installed=context.getPackageManager().getPackageInfo(context.getPackageName(),0).versionName; }
+        catch(android.content.pm.PackageManager.NameNotFoundException ignored) { }
+        LinearLayout updates=section("版本更新", "当前版本 "+installed+" · 下载由系统浏览器处理。");
+        updateStatusLabel=note("点击检查 GitHub 最新正式版本");
+        updates.addView(updateStatusLabel,noteParams());
+        LinearLayout updateActions=horizontal();
+        checkUpdateButton=button("检查更新", () -> listener.onCheckUpdate());
+        updateActions.addView(checkUpdateButton,new LinearLayout.LayoutParams(0,MATCH_PARENT,1));
+        downloadUpdateButton=button("浏览器下载新版", () -> listener.onDownloadUpdate());
+        LinearLayout.LayoutParams downloadParams=new LinearLayout.LayoutParams(0,MATCH_PARENT,1);
+        downloadParams.leftMargin=px(12);
+        updateActions.addView(downloadUpdateButton,downloadParams);
+        downloadUpdateButton.setVisibility(GONE);
+        updates.addView(updateActions,actionRowParams());
+        content.addView(updates,sectionParams());
+
         TextView reset = button("恢复默认设置", () -> listener.onResetDefaults());
         content.addView(reset, actionRowParams());
         TextView footer = note("节目单和频道数据来自配置的地址；首次获取速度取决于网络与源站。");
@@ -202,6 +222,16 @@ public final class SettingsView extends FrameLayout {
     }
 
     public boolean isOpen() { return opened; }
+
+    public void updateVersionStatus(String message, boolean checking, boolean available, boolean directApk) {
+        updateStatusLabel.setText(message);
+        checkUpdateButton.setEnabled(!checking);
+        checkUpdateButton.setAlpha(checking?0.55f:1f);
+        checkUpdateButton.setText(checking?"正在检查…":"检查更新");
+        if(!available && downloadUpdateButton.hasFocus())checkUpdateButton.requestFocus();
+        downloadUpdateButton.setVisibility(available?VISIBLE:GONE);
+        downloadUpdateButton.setText(directApk?"浏览器下载新版":"浏览器查看发布页");
+    }
 
     public void updateStatus(String channels, String epg) {
         if (channels != null) channelStatusLabel.setText(channels);

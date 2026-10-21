@@ -34,6 +34,8 @@ public class MainActivity extends Activity {
     private EpgView epgView;
     private volatile JSONObject config = new JSONObject(), epgMapping = new JSONObject();
     private String channelStatus = "", epgStatus = "";
+    private boolean updateChecking;
+    private UpdateChecker.Release availableUpdate;
     private String mainScript = "", scriptPrefix = "", scriptSuffix = "";
     private volatile boolean fastSwitch = true, rememberSource = true;
     private volatile long playbackToken;
@@ -391,6 +393,8 @@ public class MainActivity extends Activity {
             public void onRefreshEpg() { refreshRepositories(false, true); }
             public void onEditChannels() { editChannels(); }
             public void onResetDefaults() { resetDefaults(); }
+            public void onCheckUpdate() { checkVersionUpdate(); }
+            public void onDownloadUpdate() { downloadVersionUpdate(); }
             public void onClose() { closeSettings(); }
         });
         root.addView(settingsView, new FrameLayout.LayoutParams(-1, -1));
@@ -939,6 +943,45 @@ public class MainActivity extends Activity {
         updatePlaybackStatus();
     }
     private void closeSettings() { settingsView.close(); showMenu(true); }
+    private void checkVersionUpdate() {
+        if(destroyed || updateChecking)return;
+        updateChecking=true; availableUpdate=null;
+        settingsView.updateVersionStatus("正在检查最新版本…",true,false,false);
+        workers.execute(() -> {
+            UpdateChecker.Release release=null; String error="";
+            try {
+                String installed=getPackageManager().getPackageInfo(getPackageName(),0).versionName;
+                release=UpdateChecker.fetch(installed,Build.SUPPORTED_ABIS);
+            } catch(IOException failure) {
+                // Do not put low-level network details or remote response bodies in the UI.
+                String message=failure.getMessage();
+                error=message!=null && (message.startsWith("暂未") || message.startsWith("检查过") || message.startsWith("更新")
+                        || message.startsWith("连接超时") || message.startsWith("无法识别"))?message:"检查失败，请检查网络后重试";
+            } catch(Exception failure) { error="检查失败，请稍后重试"; }
+            final UpdateChecker.Release result=release; final String failure=error;
+            handler.post(() -> {
+                if(destroyed)return;
+                updateChecking=false;
+                availableUpdate=result!=null && result.newer?result:null;
+                settingsView.updateVersionStatus(result==null?failure:result.newer?"发现新版本 "+result.version
+                        +(result.directApk?" · 点击下方按钮下载":" · 暂无匹配安装包，可查看发布页")
+                        :"当前已是最新版本（最新正式版 "+result.version+"）",false,availableUpdate!=null,result!=null && result.directApk);
+            });
+        });
+    }
+    private void downloadVersionUpdate() {
+        if(destroyed || availableUpdate==null || updateChecking)return;
+        Intent intent=new Intent(Intent.ACTION_VIEW,Uri.parse(availableUpdate.downloadUrl));
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        // Resolve a generic HTTPS URL locally to prefer the user's default browser over GitHub deep links.
+        Intent browserProbe=new Intent(Intent.ACTION_VIEW,Uri.parse("https://example.org/"));
+        browserProbe.addCategory(Intent.CATEGORY_BROWSABLE);
+        android.content.pm.ResolveInfo browser=getPackageManager().resolveActivity(browserProbe,android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+        if(browser!=null && browser.activityInfo!=null && !"android".equals(browser.activityInfo.packageName))
+            intent.setPackage(browser.activityInfo.packageName);
+        try { startActivity(intent); }
+        catch(ActivityNotFoundException | SecurityException missing) { toast("未找到可用浏览器，请先安装或启用浏览器"); }
+    }
     private void updateSettingsStatus() {
         if (settingsView != null) settingsView.updateStatus(channelSummary(), epgSummary());
     }
