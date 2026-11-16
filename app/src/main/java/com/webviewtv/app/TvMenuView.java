@@ -76,7 +76,8 @@ public final class TvMenuView extends FrameLayout {
         rowHeight = UiScale.isTelevision(context) ? px(56) : touchHeight;
         int previousCategoryRowHeight = UiScale.isTelevision(context) ? px(40)
                 : Math.max(Math.round(rowHeight * .7f), Math.round(40 * getResources().getDisplayMetrics().density));
-        categoryRowHeight = Math.max(1, Math.round(previousCategoryRowHeight * .7f));
+        int compactCategoryRowHeight = Math.max(1, Math.round(previousCategoryRowHeight * .7f));
+        categoryRowHeight = Math.round(compactCategoryRowHeight * 1.2f);
         toolBarHeight = Math.max(1, Math.round(touchHeight * .5f));
         categories.add(FAVORITES);
         LinkedHashSet<String> unique = new LinkedHashSet<>();

@@ -1,10 +1,10 @@
 # 实现范围与重建记录
 
-本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.20` / versionCode 28，包名 `com.webviewtv.app`；与原应用并存，不宣称恢复了原源码或全部功能。
+本工程基于用户提供的 `com.vasthread.webviewtv.apk` 的静态证据和 MuMu Android15 运行观察，编写独立的 Android Java 核心实现。当前版本为 `0.4.21` / versionCode 29，包名 `com.webviewtv.app`；与原应用并存，不宣称恢复了原源码或全部功能。
 
 ## 来源与保留署名
 
-Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为本次研究实现。频道和网站适配器 JSON 基于所提供 APK 的 assets 解码结果维护，包含 795 个频道条目、985 个网页来源、37 个分组，原有 32 个网站适配器现增加山西移动端和最爱TV规则至 34 个。内置初始化与可编辑配置修正了原快照中两条海峡卫视 URL 的中文误前缀；原研究目录保留未改动的解码证据。
+Activity、原生菜单、设置、配置仓库、EPG 仓库及构建脚本为本次研究实现。频道和网站适配器 JSON 基于所提供 APK 的 assets 解码结果维护，包含 795 个频道条目、985 个网页来源、37 个分组，原有 32 个网站适配器现增加山西移动端、最爱TV和IPTV345规则至 35 个。内置初始化与可编辑配置修正了原快照中两条海峡卫视 URL 的中文误前缀；原研究目录保留未改动的解码证据。
 
 `app/src/main/assets/js/` 中的 `base.js`、`platform_x5.js`、`main.js`、`remove_controls.js` 保留原 APK 资源及 **vasthread / WebView电视** 署名，所提供 APK 未包含明确覆盖这些打包资源的授权文件，原权利归属不因重建而改变；没有为提取资源另加开源许可证。`tv_fullscreen.js`、`fast_switch.js` 为新增控制器。桥接依据原 APK 的频道、URL、网站适配器与 WebView 代码，当前保留 `main.getWebPageAdapter/getExtra/sendKeyEvent/setVideoSize/reportVideoLoadingState/schemeEnterFullscreen` 等接口行为。
 

@@ -644,7 +644,7 @@ public class MainActivity extends Activity {
         channelInfo.hide();
         playbackStatus.hide();
         web.stopLoading();
-        web.evaluateJavascript("if(window.wvt_hlsRecovery&&typeof window.wvt_hlsRecovery.stop==='function')window.wvt_hlsRecovery.stop();document.querySelectorAll('video').forEach(function(v){v.pause();})", null);
+        web.evaluateJavascript("if(window.wvt_iptv345Startup&&typeof window.wvt_iptv345Startup.stop==='function')window.wvt_iptv345Startup.stop();if(window.wvt_hlsRecovery&&typeof window.wvt_hlsRecovery.stop==='function')window.wvt_hlsRecovery.stop();document.querySelectorAll('video').forEach(function(v){v.pause();})", null);
         updatePlaybackStatus();
     }
 
@@ -736,6 +736,8 @@ public class MainActivity extends Activity {
         try {
             if (injectionScript.isEmpty()) throw new IOException("Playback scripts unavailable");
             String siteScript = "";
+            if (pageUrl != null && "iptv345.com".equals(Uri.parse(pageUrl).getHost()))
+                siteScript += "\n" + asset("js/iptv345_startup.js");
             if (pageUrl != null && "zuiai.tv".equals(Uri.parse(pageUrl).getHost()))
                 siteScript += "\n" + asset("js/zuiai_startup.js");
             if (pageUrl != null && ("tv.hoolo.tv".equals(Uri.parse(pageUrl).getHost()) || "m.gdtv.cn".equals(Uri.parse(pageUrl).getHost())))

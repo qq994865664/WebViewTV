@@ -23,7 +23,8 @@ public final class PlaybackTest extends Instrumentation {
     private MainActivity activity;
     private ServerSocket server;
     private int checks;
-    @Override public void onCreate(Bundle args) { super.onCreate(args); start(); }
+    private boolean onlyIptv;
+    @Override public void onCreate(Bundle args) { super.onCreate(args); onlyIptv=args!=null&&"iptv".equals(args.getString("case")); start(); }
     @Override public void onStart() {
         Bundle result = new Bundle();
         try {
@@ -51,6 +52,7 @@ public final class PlaybackTest extends Instrumentation {
             getTargetContext().getSharedPreferences("tv",0).edit().clear().putBoolean("githubChannelSourceMigratedV1",true).commit();
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             awaitPlaying("zoomed video");
+            if(onlyIptv){verifyIptvLineRecovery();result.putString("stream","\nPASS "+checks+" playback assertions\n");finish(Activity.RESULT_OK,result);return;}
             SystemClock.sleep(450);
             ui(() -> verify("real first frame schedules information", ((View)field("channelInfo")).getVisibility()==View.VISIBLE));
             verifyViewport("zoomed ancestors fit screen");
@@ -153,6 +155,7 @@ public final class PlaybackTest extends Instrumentation {
             verifyInjectionRecovery();
             verifyScheduleRestriction();
             verifyHlsFailureDiagnostic();
+            verifyIptvLineRecovery();
             result.putString("stream","\nPASS "+checks+" playback assertions\n"); finish(Activity.RESULT_OK,result);
         } catch(Throwable error) {
             result.putString("stream","\nFAIL "+android.util.Log.getStackTraceString(error)); finish(Activity.RESULT_CANCELED,result);
@@ -245,6 +248,34 @@ public final class PlaybackTest extends Instrumentation {
         verify("detailed HLS diagnostics complete",latch.await(5,TimeUnit.SECONDS));
         JSONObject media=new JSONObject(diagnostic[0]).getJSONObject("media");
         verify("detached video cannot erase the saved native and HLS errors",media.getJSONObject("hls").getJSONObject("native").getInt("error")==4&&media.getJSONObject("hls").getJSONObject("error").getInt("httpStatus")==403);
+    }
+    private void verifyIptvLineRecovery() throws Exception {
+        final String base="https://iptv345.com/?act=play&tid=itv&id=5";
+        final String fixture="<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body>"+
+                "<select id='playURL'><option value='stalled'>Line1</option><option value='working'>Line2</option></select>"+
+                "<video id='vstPlayer' autoplay muted playsinline></video><script>window.fixtureChanges=0;window.onLineChange=function(s){"+
+                "window.fixtureChanges++;var c=document.createElement('canvas');c.width=640;c.height=360;var ctx=c.getContext('2d'),n=0;"+
+                "function paint(){ctx.fillStyle=(n++%2)?'#174562':'#425f27';ctx.fillRect(0,0,640,360)}paint();setInterval(paint,100);"+
+                "var v=document.querySelector('#vstPlayer');v.srcObject=c.captureStream(10);v.play();};</script></body>";
+        ui(()->{
+            invoke("play",new Class[]{int.class,int.class},1,-999);
+            ((SourceFailover)field("sourceFailover")).configure(15);
+            WebView view=(WebView)field("web");view.stopLoading();
+            setField("sourceUrl",base);setField("pendingNavigationUrl",base);
+            view.loadDataWithBaseURL(base,fixture,"text/html","UTF-8",base);
+        });
+        awaitPlaying("IPTV stalled first line recovers via site's second line");
+        // First decoded frame reveals the picture; the recovery controller needs
+        // two later clock samples to confirm advancement after a line switch.
+        long confirmationDeadline=SystemClock.uptimeMillis()+2000;
+        while(SystemClock.uptimeMillis()<confirmationDeadline && !"\"playing\"".equals(evaluate("window.wvt_iptv345Startup.phase")))SystemClock.sleep(100);
+        verify("IPTV recovery invokes website handler once","1".equals(evaluate("window.fixtureChanges")));
+        String state=evaluate("JSON.stringify({state:window.wvt_iptv345Startup,token:window.__wvtPlaybackToken,time:document.querySelector('#vstPlayer').currentTime,paused:document.querySelector('#vstPlayer').paused,ready:document.querySelector('#vstPlayer').readyState})");
+        verify("IPTV recovery confirms moving video: "+state,"\"playing\"".equals(evaluate("window.wvt_iptv345Startup.phase")));
+        verifyViewport("IPTV recovered video is fullscreen");
+        evaluate("window.fixtureStopped=false;var originalStop=window.wvt_iptv345Startup.stop;window.wvt_iptv345Startup.stop=function(){window.fixtureStopped=true;originalStop();}");
+        ui(()->invoke("showPlaybackFailure",new Class[]{String.class},"fixture timeout"));
+        verify("native terminal timeout stops website recovery","true".equals(evaluate("window.fixtureStopped")));
     }
     private void awaitField(String name,Object expected){
         long end=SystemClock.uptimeMillis()+6000;boolean[] matched={false};

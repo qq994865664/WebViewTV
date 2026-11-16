@@ -1,5 +1,18 @@
 [
   {
+    "url": "iptv345.com",
+    "ua": "PC",
+    "videoElementCondition": "e.tagName === 'VIDEO' && e.id === 'vstPlayer'",
+    "needEnterFullscreenButton": false,
+    "enterFullscreenButtonCondition": "false",
+    "needPlayButton": false,
+    "playButtonCondition": "false",
+    "needPreClick": false,
+    "preClickElementCondition": "false",
+    "needPreClick2": false,
+    "preClickElementCondition2": "false"
+  },
+  {
     "url": "zuiai.tv",
     "ua": "MOBILE",
     "videoElementCondition": "e.tagName === 'VIDEO' && e.id === 'video'",

@@ -14,6 +14,8 @@
             bytes: window.wvt_hlsRecovery.bytes, fragments: window.wvt_hlsRecovery.fragments
         } : null,
         startup: window.wvt_gdtvStartup || null,
+        iptv: window.wvt_iptv345Startup ? { phase: window.wvt_iptv345Startup.phase,
+            line: window.wvt_iptv345Startup.line, attempts: window.wvt_iptv345Startup.attempts } : null,
         playError: typeof window.wvt_lastPlayError === 'string' ? window.wvt_lastPlayError : '',
         videos: Array.prototype.slice.call(document.querySelectorAll('video'), 0, 4).map(function (v) {
             return { host: host(v.currentSrc || v.src), ready: v.readyState, network: v.networkState,
