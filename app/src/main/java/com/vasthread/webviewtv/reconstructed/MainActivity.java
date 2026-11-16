@@ -736,6 +736,8 @@ public class MainActivity extends Activity {
         try {
             if (injectionScript.isEmpty()) throw new IOException("Playback scripts unavailable");
             String siteScript = "";
+            if (pageUrl != null && "zuiai.tv".equals(Uri.parse(pageUrl).getHost()))
+                siteScript += "\n" + asset("js/zuiai_startup.js");
             if (pageUrl != null && ("tv.hoolo.tv".equals(Uri.parse(pageUrl).getHost()) || "m.gdtv.cn".equals(Uri.parse(pageUrl).getHost())))
                 siteScript = "\n" + asset("vendor/hls.light.min.js") + "\n" + asset("js/hls_recovery.js");
             siteScript += "\n" + asset("js/site_status.js");

@@ -1,14 +1,14 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.18**（versionCode 26），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.19**（versionCode 27），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.18-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.19-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，菜单底部进入设置；系统返回键先关闭面板，再显示退出确认。
 
-**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.18/WebViewTV-0.4.18-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.18 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
+**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.19/WebViewTV-0.4.19-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.19 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
 
 0.4.17 修复盒子播放过程中误报“本轮等待已达 60 秒”的计时缺陷：真实播放反馈较慢时也会重置等待期限；实际卡顿仍按设置切源。详见 [0.4.17 发布说明](docs/release-0417.md)。
 
@@ -46,8 +46,12 @@ Release 使用正式私有密钥签名、关闭应用调试，带有旧本机开
 - 采用已确认的 D 款圆润 TV 图标，统一桌面图标、电视启动横幅与菜单标识。
 - 切换频道后自动全屏；播放画面按返回可确认退出并停止播放。
 - 设置集中管理频道配置、更新周期、节目单和切台选项。
-- 初始配置含 795 个频道条目、984 个网页来源、37 个分组。
+- 初始配置含 795 个频道条目、985 个网页来源、37 个分组。
 - FreeEPG 节目单仅匹配已有频道；没有数据时显示暂无节目，不增加频道。
+
+## 广东经济科教新增来源
+
+0.4.19 在广东组的「广东经济科教」追加 [最爱TV](https://zuiai.tv/i/1453) 为源 2，并适配跨域播放器自动播放与全屏。升级 App 后进入「设置 → 频道列表 → 立即更新」获取新来源。MuMu 实测无需手动点击即可播放，详见 [发布说明](docs/release-0419.md)。
 
 ## 检查应用更新
 
