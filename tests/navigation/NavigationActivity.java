@@ -1,8 +1,8 @@
-package com.vasthread.webviewtv.navigationtest;
+package com.webviewtv.navigationtest;
 
 import android.app.Activity;
 import android.os.Bundle;
-import com.vasthread.webviewtv.reconstructed.TvMenuView;
+import com.webviewtv.app.TvMenuView;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import java.util.ArrayList;

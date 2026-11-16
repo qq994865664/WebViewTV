@@ -27,7 +27,7 @@ Run "$bt\apksigner.bat" @('sign','--ks',"$repo\build\debug.keystore",'--ks-pass'
 Run $Adb @('-s',$Serial,'install','--no-incremental','-r',"$testBuild\test.apk")
 $instrumentArgs=@('-s',$Serial,'shell','am','instrument','-w','-r')
 if ($TvUi) { $instrumentArgs+=@('-e','tvUi','1') }
-$result=& $Adb @instrumentArgs "com.vasthread.webviewtv.navigationtest/.${Suite}Test"
+$result=& $Adb @instrumentArgs "com.webviewtv.navigationtest/.${Suite}Test"
 $instrumentExit=$LASTEXITCODE
 $result | Set-Content -LiteralPath (Join-Path $testBuild 'result.txt') -Encoding utf8
 $result

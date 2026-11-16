@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.reconstructed;
+package com.webviewtv.app;
 
 import android.app.*;
 import android.content.*;

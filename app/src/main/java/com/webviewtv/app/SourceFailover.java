@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.reconstructed;
+package com.webviewtv.app;
 
 /** Foreground playback watchdog. Times are monotonic milliseconds, supplied by the caller. */
 public final class SourceFailover {

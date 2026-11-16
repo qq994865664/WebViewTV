@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.navigationtest;
+package com.webviewtv.navigationtest;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -10,7 +10,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import com.vasthread.webviewtv.reconstructed.*;
+import com.webviewtv.app.*;
 import org.json.*;
 import java.lang.reflect.*;
 import java.net.*;

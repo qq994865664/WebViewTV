@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.navigationtest;
+package com.webviewtv.navigationtest;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -7,8 +7,8 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
-import com.vasthread.webviewtv.reconstructed.PlayerControlsView;
-import com.vasthread.webviewtv.reconstructed.ChannelSwipeAnimation;
+import com.webviewtv.app.PlayerControlsView;
+import com.webviewtv.app.ChannelSwipeAnimation;
 import java.util.ArrayList;
 import java.util.Arrays;
 

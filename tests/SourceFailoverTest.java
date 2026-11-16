@@ -1,4 +1,4 @@
-import com.vasthread.webviewtv.reconstructed.SourceFailover;
+import com.webviewtv.app.SourceFailover;
 
 /** Deterministic playback-clock coverage; no network or wall-clock sleeps. */
 public final class SourceFailoverTest {

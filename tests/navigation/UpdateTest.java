@@ -1,11 +1,11 @@
-package com.vasthread.webviewtv.navigationtest;
+package com.webviewtv.navigationtest;
 
 import android.app.*;
 import android.content.*;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.*;
-import com.vasthread.webviewtv.reconstructed.*;
+import com.webviewtv.app.*;
 import org.json.*;
 import java.lang.reflect.*;
 import java.io.IOException;

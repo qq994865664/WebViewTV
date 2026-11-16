@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.navigationtest;
+package com.webviewtv.navigationtest;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.widget.Spinner;
-import com.vasthread.webviewtv.reconstructed.*;
+import com.webviewtv.app.*;
 import org.json.*;
 import java.lang.reflect.*;
 

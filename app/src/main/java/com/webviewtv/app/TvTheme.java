@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.reconstructed;
+package com.webviewtv.app;
 
 /** Shared deep navy surfaces and soft blue accents. */
 final class TvTheme {

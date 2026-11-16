@@ -1,4 +1,4 @@
-package com.vasthread.webviewtv.navigationtest;
+package com.webviewtv.navigationtest;
 
 import android.app.Activity;
 import android.app.Instrumentation;

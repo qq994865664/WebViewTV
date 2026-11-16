@@ -1,6 +1,6 @@
 plugins { id 'com.android.application' }
-android { namespace 'com.vasthread.webviewtv.reconstructed'; compileSdk 36
- defaultConfig { applicationId 'com.vasthread.webviewtv.reconstructed'; minSdk 28; targetSdk 35; versionCode 27; versionName '0.4.19' }
+android { namespace 'com.webviewtv.app'; compileSdk 36
+ defaultConfig { applicationId 'com.webviewtv.app'; minSdk 28; targetSdk 35; versionCode 28; versionName '0.4.20' }
  buildTypes { release { debuggable false; minifyEnabled false } }
  compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
 }

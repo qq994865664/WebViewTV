@@ -1,14 +1,16 @@
 # WebView电视
 
-支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.19**（versionCode 27），包名 `com.vasthread.webviewtv.reconstructed`，可与原应用并存。
+支持 Android 手机触摸操作和电视遥控操作的 WebView 直播播放器。当前版本为 **0.4.20**（versionCode 28），包名 `com.webviewtv.app`，可与原应用并存。
 
 ## 下载安装
 
-在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.19-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
+**0.4.20 更换应用包名为 `com.webviewtv.app`**，Android 会作为新应用安装，与 0.4.19 及更早版本并存。需要保留自定义配置时，先在旧版「设置 → 频道列表 → 导出配置」，再在新版「导入配置」选择该 JSON。频道、播放和 EPG 设置可导入；收藏、上次观看频道和缓存不在导出文件中。确认迁移完成后再自行卸载旧版。详见 [0.4.20 发布说明](docs/release-0420.md)。
+
+在 [GitHub Releases](https://github.com/qq994865664/WebViewTV/releases/latest) 下载 `WebViewTV-0.4.20-android9plus-universal-release.apk`，最低 **Android 9（API 28）**，支持 **ARMv8 / arm64-v8a** 手机。项目只有 Java/WebView 和网页资源，没有打包原生 `.so` 库，因此使用同一个通用 APK，也支持其他 Android CPU 架构。它依赖手机上的 Android System WebView。
 
 手机打开后进入横屏，可向左右两个方向横持。点击播放画面打开频道菜单，点击频道切换并自动收起菜单，菜单底部进入设置；系统返回键先关闭面板，再显示退出确认。
 
-**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.19/WebViewTV-0.4.19-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.19 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
+**Android 9 的 ARMv7 32 位电视盒子**可下载 [ARMv7 安装包](https://github.com/qq994865664/WebViewTV/releases/download/v0.4.20/WebViewTV-0.4.20-android9plus-armeabi-v7a-release.apk)。此文件与 0.4.20 通用包字节相同：应用不包含原生库，无需另编译 32 位二进制；单独命名便于选择。已验证最低 API 28、电视桌面入口和签名，尚未在 Android9 ARMv7 实机运行验证。使用盒子的系统 WebView 播放。
 
 0.4.17 修复盒子播放过程中误报“本轮等待已达 60 秒”的计时缺陷：真实播放反馈较慢时也会重置等待期限；实际卡顿仍按设置切源。详见 [0.4.17 发布说明](docs/release-0417.md)。
 
@@ -38,7 +40,7 @@
 
 0.4.5 将上下换台改成整页跟手翻页，频道菜单使用半透明背景。「全部频道」入口已移除，打开菜单定位到当前频道所属分组，保留收藏和原有分组。详见 [0.4.5 发布说明](docs/release-045.md)。
 
-Release 使用正式私有密钥签名、关闭应用调试，带有旧本机开发签名的升级记录，可从本项目此前安装覆盖升级并保留配置。下载页同时提供 SHA-256 校验文件。构建与验证细节见 [发布说明](docs/release-040.md)。
+Release 使用正式私有密钥签名、关闭应用调试，带有旧本机开发签名的升级记录，同包名版本之间可覆盖升级；0.4.20 更换包名，无法覆盖 0.4.19 及更早版本，需按下方说明迁移配置。下载页同时提供 SHA-256 校验文件。构建与验证细节见 [发布说明](docs/release-040.md)。
 
 0.4.1 修复遥控器从右侧频道返回左侧分组时的列表跳位：切换区域保留两栏选中项与滚动位置，更新分组高亮时只刷新可见行。复现和回归记录见 [0.4.1 修复说明](docs/release-041.md)。
 

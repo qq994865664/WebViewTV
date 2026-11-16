@@ -1,4 +1,4 @@
-import com.vasthread.webviewtv.reconstructed.PlaybackEstimate;
+import com.webviewtv.app.PlaybackEstimate;
 
 public final class PlaybackEstimateTest {
     static int checks;
